@@ -4,7 +4,6 @@ import time
 import random
 import cv2
 import numpy as np
-import pygame
 from utils.adb_utils import ADBUtils
 from utils.image_utils import ImageUtils
 from search_sequence.search_sequence import SearchSequence
@@ -80,7 +79,7 @@ class AttackSequence:
             return False
 
         # Check for home screen indicators
-        for marker in ["home_anker.png"]:
+        for marker in ["home_anchor.png"]:
             if self.image.detect_image(self.adb, self.image_folder, marker):
                 logging.info(f"✅ Home screen detected using {marker}")
                 return True
@@ -278,7 +277,7 @@ class AttackSequence:
             (295, 202), (318, 188), (357, 166), (383, 144), (406, 120),
         ]
 
-        spell_locations = [(388, 272), (494, 395), (583, 205), (636, 395), (632, 542)]
+        spell_locations = [(588, 272), (494, 395), (583, 205), (636, 395), (632, 542)]
         ice_spell_locations = [(789, 345)]
 
         # More strategic hero deployment positions

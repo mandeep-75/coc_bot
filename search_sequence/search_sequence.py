@@ -97,7 +97,7 @@ class SearchSequence:
     def extract_resource_amounts(self) -> tuple[int, int, int]:
         """Enhanced extraction with region verification"""
         logging.info("Taking screenshot for resource detection")
-        time.sleep(6)
+        time.sleep(1)
         if not self.adb.take_screenshot("screen.png"):
             return 0, 0, 0
 
