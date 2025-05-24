@@ -1,47 +1,71 @@
-from starting_sequence.starting_sequence import StartingSequence
-from search_sequence.search_sequence import SearchSequence
-from attack_sequence.attack_sequence import AttackSequence
 import logging
-import time
+from utils.adb_utils import ADBUtils
+from attack_sequence.attack_sequence import AttackSequence
+from search_sequence.search_sequence import SearchSequence
+from starting_sequence.starting_sequence import StartingSequence
 
-# Basic logging setup
+# Configure logging with timestamp
 logging.basicConfig(
     level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s',
-    datefmt='%H:%M:%S'
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
 )
 
+def list_devices() -> list[str]:
+    """Return list of connected ADB device serial numbers."""
+    import os
+    lines = os.popen("adb devices").read().strip().splitlines()
+    devices = []
+    for line in lines[1:]:
+        parts = line.split()
+        if len(parts) >= 2 and parts[1] == "device":
+            devices.append(parts[0])
+    return devices
+
+def prompt_device_selection(devices: list[str]) -> list[str]:
+    print("Connected devices:")
+    for idx, dev in enumerate(devices, 1):
+        print(f"  {idx}. {dev}")
+    choice = input("Enter device numbers (comma-separated) or 'all': ")
+    if choice.strip().lower() == 'all':
+        return devices
+    selected = []
+    for part in choice.split(','):
+        if part.isdigit():
+            idx = int(part)
+            if 1 <= idx <= len(devices):
+                selected.append(devices[idx - 1])
+    return selected
+
 def main():
-    logging.info("STARTING CLASH OF CLANS ASSISTANT")
-    # Setup game parameters
-    start_sequence = StartingSequence()
-    attack_sequence = AttackSequence(target_percentage=50) 
+    devices = list_devices()
+    if not devices:
+        logging.error("No connected devices found. Ensure ADB is running.")
+        return
 
-    try:
-        while True:
-            # First make sure we're at home base
-            start_sequence.navigate_to_home()
-            
-            # Collect available resources
-            logging.info("Collecting resources...")
-            start_sequence.collect_resources()
-            
-            # Return home before starting attacks
-            start_sequence.navigate_to_home()
-            
-            # Run an attack cycle
-            logging.info("Starting attack...")
-            attack_sequence.execute_attack_cycle()
-            
+    selected = prompt_device_selection(devices)
+    if not selected:
+        logging.error("No valid devices selected. Exiting.")
+        return
 
-    except KeyboardInterrupt:
-        logging.info("USER INTERRUPTED EXECUTION")
-    except Exception as e:
-        logging.error(f"Error: {e}")
-    finally:
-        # Note: Need to create this function or remove this line
-        # train_sequence.cleanup()  
-        logging.info("ASSISTANT STOPPED")
+    logging.info(f"Selected devices: {selected}")
+    print("\n[SAFETY] This tool is for educational purposes. Confirm to continue.")
+    confirm = input("Type 'yes' to continue: ")
+    if confirm.strip().lower() != 'yes':
+        print("Aborted by user.")
+        return
 
-if __name__ == "__main__":
+    for serial in selected:
+        print(f"[INFO] Running sequences for device: {serial}")
+        # Run starting sequence
+        start_seq = StartingSequence(serial)
+        start_seq.run()
+        # Run search sequence
+        search_seq = SearchSequence(serial)
+        search_seq.run()
+        # Run attack sequence
+        attack_seq = AttackSequence(serial)
+        attack_seq.run()
+
+if __name__ == '__main__':
     main()

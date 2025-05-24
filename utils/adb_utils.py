@@ -1,60 +1,59 @@
+## `utils/adb_utils.py`
+
 import subprocess
 import logging
 import time
 import random
 
 class ADBUtils:
-    def __init__(self, max_retries=3):
+    """Simple ADB utility for device interaction. Add your own anti-detection logic as needed."""
+    def __init__(self, serial: str = None, max_retries: int = 3):
+        self.serial = serial
         self.max_retries = max_retries
 
-    def execute_adb(self, command: str, shell=True) -> bool:
-        """Execute an ADB command with retries and error handling."""
-        for attempt in range(self.max_retries):
+    def _build_cmd(self, cmd: str, shell: bool = True) -> str:
+        prefix = f"adb -s {self.serial} shell" if self.serial else "adb shell"
+        return f"{prefix} {cmd}" if shell else f"adb {cmd}"
+
+    def execute_adb(self, command: str, shell: bool = True) -> bool:
+        for i in range(self.max_retries):
             try:
-                if shell:
-                    cmd = f"adb shell {command}"
-                else:
-                    cmd = f"adb {command}"
-                    
-                result = subprocess.run(
-                    cmd,
-                    shell=True,
-                    check=True,
-                    capture_output=True,
-                    text=True
-                )
+                full = self._build_cmd(command, shell)
+                subprocess.run(full, shell=True, check=True, capture_output=True)
                 return True
             except subprocess.CalledProcessError as e:
-                logging.error(f"ADB command failed (attempt {attempt + 1}): {e.stderr.strip()}")
+                logging.error(f"ADB failed (try {i+1}): {e.stderr.strip()}")
                 time.sleep(1)
         return False
 
     def take_screenshot(self, filename: str) -> bool:
-        """Capture a screenshot and pull it to the local machine."""
-        try:
-            # Take screenshot on device
-            if not self.execute_adb(f"screencap -p /sdcard/{filename}"):
-                return False
-                
-            # Pull file from device to local machine
-            if not self.execute_adb(f"pull /sdcard/{filename} .", shell=False):
-                return False
-                
-            # Clean up file on device
-            if not self.execute_adb(f"rm /sdcard/{filename}"):
-                logging.warning("Failed to clean up screenshot on device")
-                
-            return True
-        except Exception as e:
-            logging.error(f"Screenshot failed: {e}")
+        """Take a screenshot from the device and pull it locally."""
+        if not self.execute_adb(f"screencap -p /sdcard/{filename}"):
             return False
+        if not self.execute_adb(f"pull /sdcard/{filename} .", shell=False):
+            return False
+        self.execute_adb(f"rm /sdcard/{filename}")
+        return True
+
+    def get_screen_dimensions(self) -> tuple[int, int]:
+        out = subprocess.check_output(
+            self._build_cmd("wm size", shell=True), shell=True, text=True
+        )
+        # e.g. "Physical size: 1080x1920"
+        parts = out.strip().split()[-1].split('x')
+        return int(parts[0]), int(parts[1])
 
     def humanlike_click(self, x: int, y: int):
-        """Simulate a human-like click with randomness."""
-        # If x, y is a tuple, unpack it
-        if isinstance(x, tuple):
-            x, y = x
-        x += random.randint(-5, 5)
-        y += random.randint(-5, 5)
-        self.execute_adb(f"input tap {x} {y}")
-        time.sleep(random.uniform(0.2, 0.5))
+        """Simulate a human-like tap with randomization."""
+        rx = x + random.randint(-5, 5)
+        ry = y + random.randint(-5, 5)
+        self._random_delay()
+        self.execute_adb(f"input tap {rx} {ry}")
+        self._random_delay()
+
+    def _random_delay(self):
+        time.sleep(random.uniform(0.15, 0.6))
+
+    def anti_detection_stub(self):
+        """Add your own anti-detection logic here (e.g., random pauses, UI checks, etc)."""
+        pass

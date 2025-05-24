@@ -48,4 +48,19 @@ ADB (Android Debug Bridge): Ensure ADB is installed and working on your system.
 
 
 4. The bot will automaticall start working.
+
+# 3️⃣ Requirements
+
+- Python 3.9+
+- opencv-python
+- numpy
+- pytesseract
+- adb (Android Debug Bridge)
+
+Install dependencies:
+
+```bash
+pip install -r requirements.txt
+```
+
 # coc_bot

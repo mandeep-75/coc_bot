@@ -1,157 +1,44 @@
+## `utils/image_utils.py`
+
 import cv2
-import numpy as np
 import logging
 import os
 from utils.debug_utils import DebugVisualizer
 
 class ImageUtils:
+    """Simple image utility for template matching and annotation."""
     def __init__(self):
         self.debugger = DebugVisualizer()
-        self.logged_messages = set()  # Set to track logged messages
+        self._seen = set()
 
-    def log_once(self, message):
-        """Log a message only once."""
-        if message not in self.logged_messages:
-            logging.info(message)
-            self.logged_messages.add(message)
+    def _log_once(self, msg: str):
+        if msg not in self._seen:
+            logging.info(msg)
+            self._seen.add(msg)
 
-    def find_image(self, screenshot_path: str, template_path: str) -> tuple[tuple[int, int] | None, float]:
-        """
-        Find a template image within a screenshot.
-        Returns tuple of ((x, y), match_percentage) if found, (None, 0.0) otherwise.
-        """
-        try:
-            # Read the images
-            screenshot = cv2.imread(screenshot_path)
-            template = cv2.imread(template_path)
-            
-            if screenshot is None or template is None:
-                self.log_once("Failed to load images")
-                return None, 0.0
-
-            # Perform template matching
-            result = cv2.matchTemplate(screenshot, template, cv2.TM_CCOEFF_NORMED)
-            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-            
-            # Create debug visualization
-            self.debugger.load_screenshot(screenshot_path)
-            match_threshold = 0.8
-            matched = max_val > match_threshold
-            match_percentage = max_val * 100
-            
-            # Draw detection box on result
-            template_name = os.path.basename(template_path)
-            confidence_text = f"{template_name} ({match_percentage:.1f}%)"
-            
-            if matched:
-                self.debugger.draw_detection(max_loc, template.shape[:2], confidence_text, color=(0, 255, 0))
-            else:
-                self.debugger.draw_detection(max_loc, template.shape[:2], confidence_text, color=(0, 0, 255))
-                
-            # Save the visualization
-            self.debugger.save_visualization("result.png")
-
-            # If the match is good enough, return the position and match percentage
-            if matched:  # Threshold for matching
-                return max_loc, match_percentage
-            return None, match_percentage
-
-        except Exception as e:
-            self.log_once(f"Error in image matching: {e}")
+    def find_image(self, screenshot: str, template: str) -> tuple[tuple[int,int]|None, float]:
+        """Find template in screenshot. Returns (position, confidence)."""
+        img = cv2.imread(screenshot)
+        tpl = cv2.imread(template)
+        if img is None or tpl is None:
+            self._log_once("Image load failure")
             return None, 0.0
+        res = cv2.matchTemplate(img, tpl, cv2.TM_CCOEFF_NORMED)
+        _, maxv, _, maxloc = cv2.minMaxLoc(res)
+        return (maxloc, maxv*100) if maxv>0.8 else (None, maxv*100)
 
-    def find_and_click_image(self, adb_utils, image_folder: str, image_name: str, 
-                             confidence_threshold=0.7, center_click=True) -> bool:
-        """
-        Find an image on screen and click on it if found.
-        
-        Args:
-            adb_utils: Instance of ADBUtils for screenshot and clicking
-            image_folder: Path to folder containing template images
-            image_name: Name of the image file to find
-            confidence_threshold: Minimum match confidence (0-1.0)
-            center_click: If True, click center of image; if False, click top-left
-            
-        Returns:
-            bool: True if image was found and clicked, False otherwise
-        """
-        image_path = os.path.join(image_folder, image_name)
-        pos, match_percentage = self.find_image("screen.png", image_path)
-        
-        # Log the confidence value regardless of success
-        confidence = match_percentage / 100
-        self.log_once(f"Match confidence for {image_name}: {confidence:.3f} (threshold: {confidence_threshold:.2f})")
-        
-        if pos and confidence >= confidence_threshold:
-            if center_click:
-                # Get the image dimensions to click in center
-                template = cv2.imread(image_path)
-                if template is not None:
-                    h, w = template.shape[:2]
-                    center_x = pos[0] + w // 2
-                    center_y = pos[1] + h // 2
-                    self.log_once(f"Clicking {image_name} at center position ({center_x}, {center_y})")
-                    adb_utils.humanlike_click(center_x, center_y)
-                else:
-                    self.log_once(f"Clicking {image_name} at detection position {pos}")
-                    adb_utils.humanlike_click(*pos)
-            else:
-                self.log_once(f"Clicking {image_name} at detection position {pos}")
-                adb_utils.humanlike_click(*pos)
-                
+    def find_and_click_image(self, adb, folder: str, name: str, thr: float=0.7) -> bool:
+        """Find and click image if confidence is above threshold."""
+        path = os.path.join(folder, name)
+        pos, pct = self.find_image("screen.png", path)
+        conf = pct/100
+        self._log_once(f"{name} confidence: {conf:.2f}")
+        if pos and conf>=thr:
+            h,w = cv2.imread(path).shape[:2]
+            x,y = pos[0]+w//2, pos[1]+h//2
+            adb.humanlike_click(x,y)
             return True
-        self.log_once(f"Image {image_name} not matched with sufficient confidence")
         return False
 
-    def find_and_click_image_now(self, adb_utils, image_folder: str, image_name: str, 
-                                    confidence_threshold=0.7, center_click=True) -> bool:
-            
-                image_path = os.path.join(image_folder, image_name)
-                pos, match_percentage = self.find_image("screen.png", image_path)
-                
-                # Log the confidence value regardless of success
-                confidence = match_percentage / 100
-                self.log_once(f"Match now confidence for {image_name}: {confidence:.3f} (threshold: {confidence_threshold:.2f})")
-                
-                if pos and confidence >= confidence_threshold:
-                    if center_click:
-                        # Get the image dimensions to click in center
-                        template = cv2.imread(image_path)
-                        if template is not None:
-                            h, w = template.shape[:2]
-                            center_x = pos[0] + w // 2
-                            center_y = pos[1] + h // 2
-                            self.log_once(f"Clicking {image_name} at center position ({center_x}, {center_y})")
-                            adb_utils.humanlike_click(center_x, center_y)
-                        else:
-                            self.log_once(f"Clicking {image_name} at detection position {pos}")
-                            adb_utils.humanlike_click(*pos)
-                    else:
-                        self.log_once(f"Clicking {image_name} at detection position {pos}")
-                        adb_utils.humanlike_click(*pos)
-                        
-                    return True
-                self.log_once(f"Image {image_name} not matched with sufficient confidence")
-                return False
-
-           
-    def detect_image(self, adb_utils, image_folder: str, image_name: str, confidence_threshold=0.7) -> bool:
-        """
-        Just detect an image on screen without clicking.
-        
-        Args:
-            adb_utils: Instance of ADBUtils for screenshot
-            image_folder: Path to folder containing template images
-            image_name: Name of the image file to find
-            confidence_threshold: Minimum match confidence (0-1.0)
-            
-        Returns:
-            bool: True if image was found, False otherwise
-        """
-        if not adb_utils.take_screenshot("screen.png"):
-            return False
-            
-        image_path = os.path.join(image_folder, image_name)
-        pos, match_percentage = self.find_image("screen.png", image_path)
-        
-        return pos is not None and match_percentage/100 >= confidence_threshold
+    def find_and_click_image_now(self, adb, folder: str, name: str, thr: float=0.7) -> bool:
+        return self.find_and_click_image(adb, folder, name, thr)
