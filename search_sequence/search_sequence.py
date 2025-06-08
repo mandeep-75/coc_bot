@@ -59,29 +59,54 @@ class SearchSequence:
 
     def preprocess_image_for_ocr(self, img):
         """Preprocess image for OCR to improve text recognition"""
+        # Cache the preprocessed image
+        if not hasattr(self, '_preprocessed_cache'):
+            self._preprocessed_cache = {}
+        
+        # Convert image to string for caching
+        img_str = str(img.tobytes())
+        if img_str in self._preprocessed_cache:
+            return self._preprocessed_cache[img_str]
+            
+        # Apply preprocessing
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         blurred = cv2.GaussianBlur(gray, (5, 5), 0)
         inverted = cv2.bitwise_not(blurred)
+        
+        # Store in cache
+        self._preprocessed_cache[img_str] = inverted
         return inverted
 
     def try_multiple_ocr(self, img):
-        """Enhanced OCR with custom-trained digits model"""
+        """Enhanced OCR with optimized processing"""
+        # Use the most effective PSM mode first
         custom_config = r'--oem 3 --psm 7 -c tessedit_char_whitelist=0123456789'
-        results = []
+        
         try:
-            results.append(pytesseract.image_to_string(img, config=custom_config, lang='digits'))
-        except:
-            results.append(pytesseract.image_to_string(img, config=custom_config))
-
-        for psm in [8, 13]:
-            results.append(pytesseract.image_to_string(
-                img,
-                config=f'--oem 3 --psm {psm} -c tessedit_char_whitelist=0123456789'
-            ))
-
-        valid_results = [r.strip() for r in results if any(c.isdigit() for c in r)]
-        if valid_results:
-            return max(set(valid_results), key=valid_results.count)
+            # Try the most reliable configuration first without language specification
+            result = pytesseract.image_to_string(img, config=custom_config)
+            if any(c.isdigit() for c in result):
+                return result.strip()
+                
+            # If first attempt fails, try alternative PSM modes
+            for psm in [8, 13]:
+                result = pytesseract.image_to_string(
+                    img,
+                    config=f'--oem 3 --psm {psm} -c tessedit_char_whitelist=0123456789'
+                )
+                if any(c.isdigit() for c in result):
+                    return result.strip()
+                    
+        except Exception as e:
+            logging.warning(f"OCR error: {str(e)}")
+            # Try one last time with minimal configuration
+            try:
+                result = pytesseract.image_to_string(img, config='--oem 3 --psm 7')
+                if any(c.isdigit() for c in result):
+                    return result.strip()
+            except:
+                pass
+            
         return ""
 
     def extract_number(self, text):
@@ -100,9 +125,9 @@ class SearchSequence:
         return num
 
     def extract_resource_amounts(self) -> tuple[int, int, int]:
-        """Enhanced extraction with region verification"""
+        """Enhanced extraction with optimized processing"""
         logging.info("Taking screenshot for resource detection")
-        time.sleep(1)
+        
         if not self.adb.take_screenshot("screen.png"):
             return 0, 0, 0
 
@@ -111,29 +136,29 @@ class SearchSequence:
         if screenshot is None:
             return 0, 0, 0
 
-        gold_region = screenshot[self.gold_bbox[1]:self.gold_bbox[3], self.gold_bbox[0]:self.gold_bbox[2]]
-        elixir_region = screenshot[self.elixir_bbox[1]:self.elixir_bbox[3], self.elixir_bbox[0]:self.elixir_bbox[2]]
-        dark_region = screenshot[self.dark_bbox[1]:self.dark_bbox[3], self.dark_bbox[0]:self.dark_bbox[2]]
+        # Extract regions once
+        regions = {
+            'gold': screenshot[self.gold_bbox[1]:self.gold_bbox[3], self.gold_bbox[0]:self.gold_bbox[2]],
+            'elixir': screenshot[self.elixir_bbox[1]:self.elixir_bbox[3], self.elixir_bbox[0]:self.elixir_bbox[2]],
+            'dark': screenshot[self.dark_bbox[1]:self.dark_bbox[3], self.dark_bbox[0]:self.dark_bbox[2]]
+        }
 
-        for name, region in [('gold', gold_region), ('elixir', elixir_region), ('dark', dark_region)]:
+        # Validate regions
+        for name, region in regions.items():
             if region.shape[0] < 20 or region.shape[1] < 50:
                 logging.error(f"Invalid {name} region size: {region.shape}")
                 return 0, 0, 0
 
-        gold_text = self.try_multiple_ocr(self.preprocess_image_for_ocr(gold_region))
-        elixir_text = self.try_multiple_ocr(self.preprocess_image_for_ocr(elixir_region))
-        dark_text = self.try_multiple_ocr(self.preprocess_image_for_ocr(dark_region))
+        # Process all regions at once
+        results = {}
+        for name, region in regions.items():
+            preprocessed = self.preprocess_image_for_ocr(region)
+            text = self.try_multiple_ocr(preprocessed)
+            results[name] = self.extract_number(text)
 
-        logging.info(f"OCR results - Gold: '{gold_text}', Elixir: '{elixir_text}', Dark: '{dark_text}'")
+        gold, elixir, dark = results['gold'], results['elixir'], results['dark']
 
-        gold = self.extract_number(gold_text)
-        elixir = self.extract_number(elixir_text)
-        dark = self.extract_number(dark_text)
-
-        gold_meets = gold >= self.gold_threshold
-        elixir_meets = elixir >= self.elixir_threshold
-        dark_meets = dark >= self.dark_threshold
-
+        # Debug visualization
         text_offset_x = 210
         text_offset_y = 30
 
@@ -165,11 +190,26 @@ class SearchSequence:
     def click_skip_button(self):
         """Click the next/skip button to move to the next base"""
         logging.info("Attempting to click next button...")
-
-        if self.image.find_and_click_image(self.adb, self.image_folder, "next_button.png", log_prefix="[SKIP] "):
-            logging.info("Next button clicked, waiting for new base to load...")
-        else:
-            logging.warning("Could not find next/skip button - search may be interrupted")
+        
+        max_retries = 3
+        for attempt in range(max_retries):
+            # Try with normal confidence first
+            if self.image.find_and_click_image(self.adb, self.image_folder, "next_button.png", log_prefix="[SKIP] "):
+                logging.info("Next button clicked, waiting for new base to load...")
+                return True
+                
+            # If failed, try with lower confidence threshold
+            if attempt < max_retries - 1:
+                logging.info(f"Retry {attempt + 1}/{max_retries} with lower confidence...")
+                if self.image.find_and_click_image(self.adb, self.image_folder, "next_button.png", 
+                                                 confidence_threshold=0.4, log_prefix="[SKIP] "):
+                    logging.info("Next button clicked with lower confidence, waiting for new base to load...")
+                    return True
+                    
+            time.sleep(0.5)  # Short delay between attempts
+            
+        logging.warning("Could not find next/skip button after multiple attempts - search may be interrupted")
+        return False
 
     def meets_threshold(self, gold: int, elixir: int, dark: int) -> bool:
         """Check if at least TWO resources meet or exceed the defined thresholds"""

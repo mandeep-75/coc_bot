@@ -44,8 +44,10 @@ class StartingSequence:
         logging.info("="*50)
         
         if not self.check_game_state():
-            logging.warning("❌ Game not in expected state, cannot collect resources")
-            return False
+            logging.warning("❌ Game not in expected state, attempting recovery...")
+            if not self.navigate_to_home():
+                logging.error("❌ Failed to recover game state for resource collection")
+                return False
       
         resources = ["gold.png", "elixir.png", "dark_elixir.png"]
         
@@ -54,38 +56,47 @@ class StartingSequence:
         logging.info("-"*40)
         
         resource_count = 0
+        
         for resource in resources:
             logging.info(f"Attempting to collect {resource}...")
             if self.image.find_and_click_image(self.adb, self.image_folder, resource):
                 logging.info(f"✅ Successfully clicked on {resource}")
                 resource_count += 1
-                time.sleep(random.uniform(1, 2))  # Mimic human delay
+                time.sleep(random.uniform(0.5, 1))  # Reduced delay since we only try once
             else:
-                logging.info(f"⏭️ {resource} not found or could not be clicked")
+                logging.info(f"⏭️ {resource} not found or already collected")
 
         logging.info("\n" + "-"*40)
         logging.info(f"RESOURCE COLLECTION COMPLETED: {resource_count}/{len(resources)} resources collected")
         logging.info("-"*40)
-        return True
+        return True  # Return True even if no resources were collected, as this is normal
 
     def is_home_screen(self):
+        """Check if we are on the home screen with improved validation."""
         logging.info("Checking if we are on the home screen...")
         
         if not self.adb.take_screenshot("screen.png"):
             logging.error("❌ Failed to take screenshot while checking home screen")
             return False
             
-        # Check for home screen indicators
-        for marker in ["home_anker.png"]:
-            if self.image.detect_image(self.adb, self.image_folder, marker):
-                logging.info(f"✅ Home screen detected using {marker}")
-                return True
+        # Check for multiple home screen indicators
+        home_indicators = ["home_anker.png", "attack_button.png", "find_match.png"]
+        indicator_count = 0
         
-        logging.warning("❌ Not on home screen")
-        return False
+        for marker in home_indicators:
+            if self.image.detect_image(self.adb, self.image_folder, marker):
+                indicator_count += 1
+                logging.info(f"✅ Found home screen indicator: {marker}")
+        
+        is_home = indicator_count >= 2  # Require at least 2 indicators for better accuracy
+        if is_home:
+            logging.info("✅ Home screen confirmed with multiple indicators")
+        else:
+            logging.warning("❌ Not on home screen (insufficient indicators)")
+        return is_home
 
     def navigate_to_home(self, max_attempts=5):
-        """Attempt to navigate back to the home screen"""
+        """Attempt to navigate back to the home screen with improved logic"""
         logging.info("\n" + "-"*40)
         logging.info("NAVIGATING TO HOME SCREEN")
         logging.info("-"*40)
@@ -95,13 +106,15 @@ class StartingSequence:
             return True
         
         # Try clicking UI elements that can lead back to home
-        for _ in range(max_attempts):
+        for attempt in range(max_attempts):
+            logging.info(f"Navigation attempt {attempt + 1}/{max_attempts}")
+            
             # Take a screenshot
             if not self.adb.take_screenshot("screen.png"):
                 continue
             
             # Check for buttons that can help return to home
-            buttons = ["close.png","end_battle.png","return_home.png","back_anchor.png"]
+            buttons = ["close.png", "end_battle.png", "return_home.png", "back_anchor.png"]
             
             clicked = False
             for button in buttons:
@@ -111,16 +124,19 @@ class StartingSequence:
                     time.sleep(1.5)
                     break
             
-            # If we didn't click anything, try a special technique - click top left corner
-            # if not clicked:
-            #     logging.info("Trying to centre screen ")
-            #     self.adb.humanlike_click(50, 50)  # Top left is often a back button
-            #     time.sleep(1.5)
+            # If we didn't click anything, try clicking the top left corner
+            if not clicked:
+                logging.info("Trying to click top left corner...")
+                self.adb.humanlike_click(50, 50)
+                time.sleep(1.5)
             
             # Check if we reached home
             if self.is_home_screen():
                 logging.info("✅ Successfully navigated to home screen")
                 return True
+                
+            # Add a small delay between attempts
+            time.sleep(0.5)
         
         logging.error("❌ Failed to navigate to home screen after multiple attempts")
         return False
