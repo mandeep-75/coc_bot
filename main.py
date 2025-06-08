@@ -7,6 +7,7 @@ from starting_sequence.starting_sequence import StartingSequence
 from search_sequence.search_sequence import SearchSequence
 from attack_sequence.attack_sequence import AttackSequence
 from donation_sequence.donation_sequence import DonationSequence
+from wall_upgrade_sequence.wall_upgrade_sequence import WallUpgradeSequence
 
 # Configure logging
 logging.basicConfig(
@@ -32,6 +33,7 @@ class BotConfig:
     enable_searching: bool = True
     enable_attacking: bool = True
     enable_donations: bool = False
+    enable_wall_upgrades: bool = False
     
     # Attack settings
     target_percentage: int = 50
@@ -44,6 +46,9 @@ class BotConfig:
     
     # Donation settings
     donation_interval: int = 3
+    
+    # Wall upgrade settings
+    wall_upgrade_interval: int = 5  # Number of attack cycles between wall upgrade attempts
 
 class ClashBot:
     def __init__(self, config: BotConfig):
@@ -67,29 +72,45 @@ class ClashBot:
         )
         self.attack_sequence = AttackSequence(
             target_percentage=config.target_percentage,
-            debug_mode=config.debug_mode
+            debug_mode=config.debug_mode,
+            search_sequence=self.search_sequence
         )
         self.donation_sequence = DonationSequence(debug_mode=config.debug_mode)
+        self.wall_upgrade_sequence = WallUpgradeSequence(
+            min_gold_threshold=config.gold_threshold,
+            min_elixir_threshold=config.elixir_threshold,
+            debug_mode=config.debug_mode
+        )
         
+        # Log initialization status
+        self.log_initialization_status()
+        
+    def log_initialization_status(self):
+        """Log the initialization status of the bot and its sequences."""
         logging.info("=" * 50)
         logging.info("CLASH OF CLANS BOT INITIALIZED")
-        logging.info(f"Debug Mode: {'Enabled' if config.debug_mode else 'Disabled'}")
+        logging.info(f"Debug Mode: {'Enabled' if self.config.debug_mode else 'Disabled'}")
         logging.info("\nSequence Status:")
-        logging.info(f"  Starting Sequence: {'Enabled' if config.enable_starting else 'Disabled'}")
-        logging.info(f"  Search Sequence: {'Enabled' if config.enable_searching else 'Disabled'}")
-        logging.info(f"  Attack Sequence: {'Enabled' if config.enable_attacking else 'Disabled'}")
-        logging.info(f"  Donation Sequence: {'Enabled' if config.enable_donations else 'Disabled'}")
+        logging.info(f"  Starting Sequence: {'Enabled' if self.config.enable_starting else 'Disabled'}")
+        logging.info(f"  Search Sequence: {'Enabled' if self.config.enable_searching else 'Disabled'}")
+        logging.info(f"  Attack Sequence: {'Enabled' if self.config.enable_attacking else 'Disabled'}")
+        logging.info(f"  Donation Sequence: {'Enabled' if self.config.enable_donations else 'Disabled'}")
+        logging.info(f"  Wall Upgrade Sequence: {'Enabled' if self.config.enable_wall_upgrades else 'Disabled'}")
         
-        if config.enable_searching or config.enable_attacking:
+        if self.config.enable_searching or self.config.enable_attacking:
             logging.info("\nResource Thresholds:")
-            logging.info(f"  Gold: {config.gold_threshold:,}")
-            logging.info(f"  Elixir: {config.elixir_threshold:,}")
-            logging.info(f"  Dark: {config.dark_threshold:,}")
-            logging.info(f"Target Destruction: {config.target_percentage}%")
+            logging.info(f"  Gold: {self.config.gold_threshold:,}")
+            logging.info(f"  Elixir: {self.config.elixir_threshold:,}")
+            logging.info(f"  Dark: {self.config.dark_threshold:,}")
+            logging.info(f"Target Destruction: {self.config.target_percentage}%")
         
-        if config.enable_donations:
+        if self.config.enable_donations:
             logging.info(f"\nDonation Settings:")
-            logging.info(f"  Donation Interval: Every {config.donation_interval} attacks")
+            logging.info(f"  Donation Interval: Every {self.config.donation_interval} attacks")
+            
+        if self.config.enable_wall_upgrades:
+            logging.info(f"\nWall Upgrade Settings:")
+            logging.info(f"  Wall Upgrade Interval: Every {self.config.wall_upgrade_interval} attacks")
         
         logging.info("=" * 50)
 
@@ -153,6 +174,13 @@ class ClashBot:
                         self.attack_count >= self.config.donation_interval):
                         logging.info(f"Attack count reached {self.attack_count}, executing donation cycle")
                         self.donation_sequence.execute_donation_cycle()
+                        self.attack_count = 0  # Reset attack count
+                        
+                    # Check if it's time to upgrade walls
+                    if (self.config.enable_wall_upgrades and 
+                        self.attack_count >= self.config.wall_upgrade_interval):
+                        logging.info(f"Attack count reached {self.attack_count}, executing wall upgrade cycle")
+                        self.wall_upgrade_sequence.execute_wall_upgrade_cycle()
                         self.attack_count = 0  # Reset attack count
                 else:
                     logging.warning("Attack cycle completed with issues")
@@ -256,18 +284,22 @@ def main():
         enable_searching=True,
         enable_attacking=True,
         enable_donations=False,
+        enable_wall_upgrades=False,
         
         # Attack settings
         target_percentage=50,
         max_searches=30000,
         
         # Resource thresholds
-        gold_threshold=100000,
-        elixir_threshold=100000,
+        gold_threshold=1000000,
+        elixir_threshold=1000000,
         dark_threshold=5000,
         
         # Donation settings
-        donation_interval=3
+        donation_interval=3,
+        
+        # Wall upgrade settings
+        wall_upgrade_interval=5
     )
     
     try:

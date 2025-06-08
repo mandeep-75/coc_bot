@@ -27,11 +27,6 @@ class SearchSequence:
 
         self.debugger = DebugVisualizer(debug_mode=debug_mode)
 
-        logging.info("\n" + "="*50)
-        logging.info("SEARCH SEQUENCE INITIALIZED")
-        logging.info(f"Resource Thresholds - Gold: {gold_threshold:,}, Elixir: {elixir_threshold:,}, Dark: {dark_threshold:,}")
-        logging.info("="*50)
-
     def click_initial_buttons(self):
         """Click 'attack_button.png' first, then attempt to click 'find_match.png' if available."""
 

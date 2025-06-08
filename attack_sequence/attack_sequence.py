@@ -11,26 +11,23 @@ from search_sequence.search_sequence import SearchSequence
 from utils.main_utils import click_button, wait_for_ui_stabilization
 
 class AttackSequence:
-    def __init__(self, target_percentage=50, debug_mode=True):
+    def __init__(self, target_percentage=50, debug_mode=True, search_sequence=None):
         """
         Initialize the attack sequence with a target destruction percentage.
 
         Args:
             target_percentage: Minimum destruction percentage to achieve (default: 50 for one star)
             debug_mode: Whether to enable debug visualization
+            search_sequence: The search sequence instance to use for finding bases
         """
         self.adb = ADBUtils()
         self.image = ImageUtils(debug_mode=debug_mode)
         self.image_folder = os.path.join(os.path.dirname(__file__), "images")
         self.target_percentage = target_percentage
-        self.search_sequence = SearchSequence(gold_threshold=100000, elixir_threshold=100000, dark_threshold=5000, debug_mode=debug_mode)
+        self.search_sequence = search_sequence
         # Initialize deployment locations dictionary
         self.deployment_locations = {}
         self.debugger = DebugVisualizer(debug_mode=debug_mode)
-
-        logging.info("\n" + "="*50)
-        logging.info(f"ATTACK SEQUENCE INITIALIZED (Target: {target_percentage}% destruction)")
-        logging.info("="*50)
 
     def execute_attack(self, max_duration=10):
         """
@@ -459,7 +456,6 @@ class AttackSequence:
         if not self.search_sequence.search_for_base(max_searches):
             logging.warning("⚠️ No suitable base found for attack.")
             return False
-
         # Execute the attack
         logging.info("Executing attack...")
         attack_success = self.execute_attack()

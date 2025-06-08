@@ -12,9 +12,6 @@ class StartingSequence:
         self.adb = ADBUtils()
         self.image = ImageUtils(debug_mode=debug_mode)
         self.image_folder = os.path.join(os.path.dirname(__file__), "images")
-        logging.info("\n" + "="*50)
-        logging.info("STARTING SEQUENCE INITIALIZED")
-        logging.info("="*50)
 
     def check_game_state(self):
         """Check if the game is in the expected state."""
