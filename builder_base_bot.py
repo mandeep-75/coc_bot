@@ -4,7 +4,7 @@ import cv2
 import os
 import glob
 import time
-troop_folder = "ui/witch"
+troop_folder = "ui_builder_base/witch"
 RANDOM_OFFSET = 5  # pixels
 
 def human_tap(base_x, base_y, offset):
@@ -143,41 +143,24 @@ def human_swipe_down(start_x=300, start_y=300, end_x=300, end_y=600, min_duratio
     except subprocess.CalledProcessError as e:
         print(f"Failed to execute swipe: {e}")
 
-def run_every_num_loops():
-    
-    print("=== Running every num loops function ===")
-    # Add your specific logic here
-    # For example:
-    # - Take a screenshot
-    # - Check for specific UI elements
-    # - Perform special actions
-    # - Clean up or maintenance tasks
-    
-    # Example: Check if we need to swipe down
-    if swipe_down_if_image_present("ui/is_home"):
-        time.sleep(random.uniform(0.7, 1))
-        take_screenshot("screen.png")
-       
-    else:
-        print("not on  home screen")
+
 if __name__ == "__main__":
     loop_count = 0
     while True:
         try:
             loop_count += 1
             print(f"\n=== Starting Loop {loop_count} ===")
-            run_every_num_loops()
             take_screenshot("screen.png")
-            detect_and_tap_button("ui/attack_button", "screen.png")
+            detect_and_tap_button("ui_builder_base/attack_button", "screen.png")
             time.sleep(random.uniform(0.2, 0.5))
             take_screenshot("screen.png")
-            detect_and_tap_button("ui/find_match_button", "screen.png")
+            detect_and_tap_button("ui_builder_base/find_match_button", "screen.png")
             time.sleep(random.uniform(0.2, 0.5))
             take_screenshot("screen.png")
             deployment_locations = [
                 (50, 360), 
             ]
-            deploy_troop_at_locations("ui/battle_mechine", deployment_locations)
+            deploy_troop_at_locations("ui_builder_base/battle_mechine", deployment_locations)
             deployment_locations2 = [
                 (50, 360), 
                 (300, 200), 
@@ -190,21 +173,19 @@ if __name__ == "__main__":
 
             deploy_troop_at_locations(troop_folder, deployment_locations2)
             time.sleep(random.uniform(0.2, 0.5))  # Wait before starting next loop
-            deploy_troop_at_locations("ui/battle_mechine", deployment_locations)
+            deploy_troop_at_locations("ui_builder_base/battle_mechine", deployment_locations)
             deploy_troop_at_locations(troop_folder, deployment_locations2)
             time.sleep(random.uniform(0.2, 0.5))  # Wait before starting next loop
             take_screenshot("screen.png")
-            detect_and_tap_button("ui/return_home", "screen.png")
+            detect_and_tap_button("ui_builder_base/return_home", "screen.png")
             time.sleep(random.uniform(0.2, 0.5))
             take_screenshot("screen.png")
-            detect_and_tap_button("ui/okay_button", "screen.png")
-            detect_and_tap_button("ui/gold", "screen.png")
+            detect_and_tap_button("ui_builder_base/okay_button", "screen.png")
+            detect_and_tap_button("ui_builder_base/gold", "screen.png")
             time.sleep(random.uniform(0.1,0.5))
-            detect_and_tap_button("ui/eilixer", "screen.png")
+            detect_and_tap_button("ui_builder_base/eilixer", "screen.png")
             time.sleep(random.uniform(0.2, 0.5))
             print(f"=== Completed Loop {loop_count} ===")
-            
-            
             
         except KeyboardInterrupt:
             print("\nBot stopped by user (Ctrl+C)")
