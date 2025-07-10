@@ -217,10 +217,10 @@ if __name__ == "__main__":
                 print("Return home button image not detected yet. Waiting...")
                 time.sleep(2)
             detect_and_tap_button("ui_main_base/return_home", "screen.png")
-            time.sleep(random.uniform(2, 3))
+            time.sleep(random.uniform(4, 4.5))
             take_screenshot("screen.png")
             detect_and_tap_button("ui_main_base/okay_button", "screen.png")
-            time.sleep(4)
+            time.sleep(random.uniform(1, 2))
         except Exception as e:
             print(f"Error in main base loop: {e}")
             time.sleep(2) 
