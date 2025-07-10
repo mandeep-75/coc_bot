@@ -7,8 +7,8 @@ import time
 import sys
 from text_detect_resource import get_resource_values
 
-RANDOM_OFFSET = 5  # pixels
-
+RANDOM_OFFSET_TROOPS = 6  # pixels
+RANDOM_OFFSET_SPELLS = 15  # pixels
 def human_tap(base_x, base_y, offset):
     x = base_x + random.randint(-offset, offset)
     y = base_y + random.randint(-offset, offset)
@@ -75,7 +75,20 @@ def deploy_troop_at_locations(troop_button_folder, deployment_locations, screens
         print(f"Troop button clicked, deploying at {len(deployment_locations)} locations")
         for i, (x, y) in enumerate(deployment_locations):
             print(f"Deploying at location {i+1}: ({x}, {y})")
-            human_tap(x, y, RANDOM_OFFSET)
+            human_tap(x, y, RANDOM_OFFSET_TROOPS)
+            time.sleep(random.uniform(0.3, 0.5))
+        return True
+    else:
+        print(f"Troop button not found in {troop_button_folder}")
+        return False
+
+def deploy_spells_at_locations(troop_button_folder, deployment_locations, screenshot_path="screen.png"):
+    if detect_and_tap_button(troop_button_folder, screenshot_path):
+        random.shuffle(deployment_locations)
+        print(f"Troop button clicked, deploying at {len(deployment_locations)} locations")
+        for i, (x, y) in enumerate(deployment_locations):
+            print(f"Deploying at location {i+1}: ({x}, {y})")
+            human_tap(x, y, RANDOM_OFFSET_SPELLS)
             time.sleep(random.uniform(0.3, 0.5))
         return True
     else:
@@ -120,9 +133,9 @@ def human_swipe_down(start_x=300, start_y=300, end_x=300, end_y=600, min_duratio
         print(f"Failed to execute swipe: {e}")
 
 # Resource thresholds (set as needed)
-gold_threshold = 400000
-elixir_threshold = 400000
-dark_elixir_threshold = 2000
+gold_threshold = 900000
+elixir_threshold = 900000
+dark_elixir_threshold = 5000
 
 if __name__ == "__main__":
     loop_count = 0
@@ -146,9 +159,8 @@ if __name__ == "__main__":
             while True:
                 take_screenshot("screen.png")
                 if detect_button_on_screen("ui_main_base/find_match_button", "screen.png"):
-                    print("attack button detected!")
+                    print("find match button detected!")
                     break
-                print("attack button not detected yet. Waiting...")
                 detect_and_tap_button("ui_main_base/attack_button", "screen.png")
                 time.sleep(2)
             detect_and_tap_button("ui_main_base/find_match_button", "screen.png")
@@ -176,10 +188,10 @@ if __name__ == "__main__":
                 (321, 479), (178, 288), (203, 271), (227, 258), (256, 230),
                 (295, 202), (318, 188), (357, 166), (383, 144), (406, 120),
                 (321, 479), (178, 288), (203, 271), (227, 258), (256, 230),
-                (295, 202), (318, 188), (357, 166), (383, 144), (406, 120),
+                #(295, 202), (318, 188), (357, 166), (383, 144), (406, 120),
             ]
 
-            spell_locations = [(588, 272), (494, 395), (583, 205), (636, 395), (632, 542)
+            spell_locations = [(588, 272), (494, 395), (583, 205), (636, 395), (632, 500)
             ]
             ice_spell_locations = [(789, 345)]
 
@@ -189,8 +201,8 @@ if __name__ == "__main__":
             deploy_troop_at_locations("ui_main_base/troops/super_minion", troop_locations)
             deploy_troop_at_locations("ui_main_base/troops/valkyrie", troop_locations)
             time.sleep(random.uniform(6,7))
-            deploy_troop_at_locations("ui_main_base/spells/rage", spell_locations)
-            deploy_troop_at_locations("ui_main_base/spells/heal", spell_locations)
+            deploy_spells_at_locations("ui_main_base/spells/rage", spell_locations)
+            # deploy_spells_at_locations("ui_main_base/spells/heal", spell_locations)
             time.sleep(random.uniform(0.2, 0.5))
 
             # deploy_troop_at_locations("ui_main_base/ice_spell", spell_locations)
