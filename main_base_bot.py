@@ -7,7 +7,7 @@ import time
 import sys
 from text_detect_resource import get_resource_values
 
-RANDOM_OFFSET_TROOPS = 6  # pixels
+RANDOM_OFFSET = 6  # pixels
 RANDOM_OFFSET_SPELLS = 15  # pixels
 def human_tap(base_x, base_y, offset):
     x = base_x + random.randint(-offset, offset)
@@ -15,7 +15,7 @@ def human_tap(base_x, base_y, offset):
     adb_command = ["adb", "shell", "input", "tap", str(x), str(y)]
     try:
         subprocess.run(adb_command, check=True)
-        print(f"Tapped at ({x}, {y}) using ADB.")
+        print(f"Tapped at ({x}, {y})")
     except subprocess.CalledProcessError as e:
         print(f"Failed to execute ADB command: {e}")
 
@@ -56,7 +56,7 @@ def detect_button_on_screen(button_folder, screenshot_path, threshold=0.8):
         print(f"Button detected at ({center_x}, {center_y}) with confidence {best_val}")
         return center_x, center_y
     else:
-        print("No button detected above threshold.")
+        print("No button detected above threshold from all images in folder")
         return None
 
 def detect_and_tap_button(button_folder, screenshot_path, threshold=0.9):
@@ -75,11 +75,11 @@ def deploy_troop_at_locations(troop_button_folder, deployment_locations, screens
         print(f"Troop button clicked, deploying at {len(deployment_locations)} locations")
         for i, (x, y) in enumerate(deployment_locations):
             print(f"Deploying at location {i+1}: ({x}, {y})")
-            human_tap(x, y, RANDOM_OFFSET_TROOPS)
+            human_tap(x, y, RANDOM_OFFSET)
             time.sleep(random.uniform(0.3, 0.5))
         return True
     else:
-        print(f"Troop button not found in {troop_button_folder}")
+        print(f"Troop not found in image form folder: {troop_button_folder}")
         return False
 
 def deploy_spells_at_locations(troop_button_folder, deployment_locations, screenshot_path="screen.png"):
@@ -87,22 +87,20 @@ def deploy_spells_at_locations(troop_button_folder, deployment_locations, screen
         random.shuffle(deployment_locations)
         print(f"Troop button clicked, deploying at {len(deployment_locations)} locations")
         for i, (x, y) in enumerate(deployment_locations):
-            print(f"Deploying at location {i+1}: ({x}, {y})")
             human_tap(x, y, RANDOM_OFFSET_SPELLS)
             time.sleep(random.uniform(0.3, 0.5))
         return True
     else:
-        print(f"Troop button not found in {troop_button_folder}")
+        print(f"spell not found in image form folder: {troop_button_folder}")
         return False
 
 
-def deploy_all_heros(hero_folder_root, hero_locations, screenshot_path="screen.png"):
+def deploy_all_heroes(hero_folder_root, hero_locations, screenshot_path="screen.png"):
     """
     Finds all hero folders inside hero_folder_root and deploys each hero at a shuffled location.
-    hero_folder_root: path to the folder containing hero subfolders (e.g., 'ui_main_base/hero')
+    hero_folder_root: path to the folder containing hero sub folders (e.g., 'ui_main_base/hero')
     hero_locations: list of (x, y) tuples
     """
-    # Find all subfolders in hero_folder_root
     hero_folders = [os.path.join(hero_folder_root, name) for name in os.listdir(hero_folder_root)
                     if os.path.isdir(os.path.join(hero_folder_root, name))]
     random.shuffle(hero_folders)              
@@ -110,13 +108,12 @@ def deploy_all_heros(hero_folder_root, hero_locations, screenshot_path="screen.p
     random.shuffle(shuffled_locations)
     for folder, loc in zip(hero_folders, shuffled_locations):
         if detect_and_tap_button(folder, screenshot_path):
-            print(f"Deploying hero from {folder} at {loc}")
             human_tap(loc[0], loc[1], RANDOM_OFFSET)
             time.sleep(random.uniform(0.5, 1.5))
         else:
-            print(f"Hero button not found in {folder}")
+            print(f"Hero not found in image from folder: {folder}")
 
-def human_swipe_down(start_x=300, start_y=300, end_x=300, end_y=600, min_duration=200, max_duration=400):
+def human_swipe(start_x=300, start_y=300, end_x=300, end_y=600, min_duration=200, max_duration=400):
     sx = start_x + random.randint(-15, 15)
     sy = start_y + random.randint(-15, 15)
     ex = end_x + random.randint(-15, 15)
@@ -128,7 +125,7 @@ def human_swipe_down(start_x=300, start_y=300, end_x=300, end_y=600, min_duratio
     ]
     try:
         subprocess.run(adb_command, check=True)
-        print(f"Swiped down from ({sx}, {sy}) to ({ex}, {ey}) in {duration} ms.")
+        print(f"Swiped from ({sx}, {sy}) to ({ex}, {ey}) in {duration} ms.")
     except subprocess.CalledProcessError as e:
         print(f"Failed to execute swipe: {e}")
 
@@ -145,14 +142,14 @@ if __name__ == "__main__":
             print(f"\n=== Starting Main Base Loop {loop_count} ===")
             take_screenshot("screen.png")
             detect_and_tap_button("ui_main_base/gold_collect", "screen.png")
-            detect_and_tap_button("ui_main_base/eilixer_collect", "screen.png")
-            detect_and_tap_button("ui_main_base/dark_eilixer_collect", "screen.png")                                  
+            detect_and_tap_button("ui_main_base/elixir_collect", "screen.png")
+            detect_and_tap_button("ui_main_base/dark_elixir_collect", "screen.png")                                  
             while True:
                 take_screenshot("screen.png")
                 if detect_button_on_screen("ui_main_base/attack_button", "screen.png"):
                     print("attack button detected!")
                     break
-                print("attack button not detected yet. Waiting...")
+                print("attack button image not detected yet. Waiting...")
                 time.sleep(2)
             detect_and_tap_button("ui_main_base/attack_button", "screen.png")
             time.sleep(random.uniform(0.2, 0.5))
@@ -166,7 +163,6 @@ if __name__ == "__main__":
             detect_and_tap_button("ui_main_base/find_match_button", "screen.png")
             time.sleep(random.uniform(3.5, 4))
             take_screenshot("screen.png")
-            # Resource detection and next battle loop
             attempt = 1
             while True:
                 resources = get_resource_values("screen.png")
@@ -207,7 +203,7 @@ if __name__ == "__main__":
 
             # deploy_troop_at_locations("ui_main_base/ice_spell", spell_locations)
             # time.sleep(random.uniform(0.2, 0.5))
-            deploy_all_heros("ui_main_base/hero", hero_locations)
+            deploy_all_heroes("ui_main_base/hero", hero_locations)
             time.sleep(random.uniform(6, 8))
             detect_and_tap_button("ui_main_base/hero/grand_warden","screen.png")
             detect_and_tap_button("ui_main_base/hero/minion_prince","screen.png")
@@ -218,7 +214,7 @@ if __name__ == "__main__":
                 if detect_button_on_screen("ui_main_base/return_home", "screen.png"):
                     print("Return home button detected!")
                     break
-                print("Return home button not detected yet. Waiting...")
+                print("Return home button image not detected yet. Waiting...")
                 time.sleep(2)
             detect_and_tap_button("ui_main_base/return_home", "screen.png")
             time.sleep(random.uniform(2, 3))
