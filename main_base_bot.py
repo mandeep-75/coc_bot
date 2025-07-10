@@ -143,7 +143,14 @@ if __name__ == "__main__":
                 time.sleep(2)
             detect_and_tap_button("ui_main_base/attack_button", "screen.png")
             time.sleep(random.uniform(0.2, 0.5))
-            take_screenshot("screen.png")
+            while True:
+                take_screenshot("screen.png")
+                if detect_button_on_screen("ui_main_base/find_match_button", "screen.png"):
+                    print("attack button detected!")
+                    break
+                print("attack button not detected yet. Waiting...")
+                detect_and_tap_button("ui_main_base/attack_button", "screen.png")
+                time.sleep(2)
             detect_and_tap_button("ui_main_base/find_match_button", "screen.png")
             time.sleep(random.uniform(3.5, 4))
             take_screenshot("screen.png")
@@ -172,18 +179,20 @@ if __name__ == "__main__":
                 (295, 202), (318, 188), (357, 166), (383, 144), (406, 120),
             ]
 
-            spell_locations = [(588, 272), (494, 395), (583, 205)
-            #, (636, 395), (632, 542)
+            spell_locations = [(588, 272), (494, 395), (583, 205), (636, 395), (632, 542)
             ]
             ice_spell_locations = [(789, 345)]
 
             # More strategic hero deployment positions
             hero_locations = [(149, 320), (194, 379), (214, 261), (157, 325)]
 
+            deploy_troop_at_locations("ui_main_base/troops/super_minion", troop_locations)
             deploy_troop_at_locations("ui_main_base/troops/valkyrie", troop_locations)
             time.sleep(random.uniform(6,7))
+            deploy_troop_at_locations("ui_main_base/spells/rage", spell_locations)
             deploy_troop_at_locations("ui_main_base/spells/heal", spell_locations)
             time.sleep(random.uniform(0.2, 0.5))
+
             # deploy_troop_at_locations("ui_main_base/ice_spell", spell_locations)
             # time.sleep(random.uniform(0.2, 0.5))
             deploy_all_heros("ui_main_base/hero", hero_locations)
