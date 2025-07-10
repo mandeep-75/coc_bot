@@ -66,7 +66,7 @@ def detect_and_tap_button(button_folder, screenshot_path, threshold=0.9):
         human_tap(x, y, RANDOM_OFFSET)
         return True
     else:
-        print(f"No button found in {button_folder}, continuing...")
+        print(f"No button found in ui form folder: {button_folder}, continuing...")
         return False
 
 def deploy_troop_at_locations(troop_button_folder, deployment_locations, screenshot_path="screen.png"):
