@@ -92,6 +92,7 @@ def deploy_all_heros(hero_folder_root, hero_locations, screenshot_path="screen.p
     # Find all subfolders in hero_folder_root
     hero_folders = [os.path.join(hero_folder_root, name) for name in os.listdir(hero_folder_root)
                     if os.path.isdir(os.path.join(hero_folder_root, name))]
+    random.shuffle(hero_folders)              
     shuffled_locations = hero_locations[:]
     random.shuffle(shuffled_locations)
     for folder, loc in zip(hero_folders, shuffled_locations):
@@ -119,9 +120,9 @@ def human_swipe_down(start_x=300, start_y=300, end_x=300, end_y=600, min_duratio
         print(f"Failed to execute swipe: {e}")
 
 # Resource thresholds (set as needed)
-gold_threshold = 900000
-elixir_threshold = 900000
-dark_elixir_threshold = 10000
+gold_threshold = 400000
+elixir_threshold = 400000
+dark_elixir_threshold = 2000
 
 if __name__ == "__main__":
     loop_count = 0
@@ -136,9 +137,9 @@ if __name__ == "__main__":
             while True:
                 take_screenshot("screen.png")
                 if detect_button_on_screen("ui_main_base/attack_button", "screen.png"):
-                    print("Return home button detected!")
+                    print("attack button detected!")
                     break
-                print("Return home button not detected yet. Waiting...")
+                print("attack button not detected yet. Waiting...")
                 time.sleep(2)
             detect_and_tap_button("ui_main_base/attack_button", "screen.png")
             time.sleep(random.uniform(0.2, 0.5))
@@ -154,7 +155,7 @@ if __name__ == "__main__":
                 gold = int(resources.get('gold', 0) or 0)
                 elixir = int(resources.get('elixir', 0) or 0)
                 dark = int(resources.get('dark_elixir', 0) or 0)
-                if gold >= gold_threshold or elixir >= elixir_threshold or dark >= dark_elixir_threshold:
+                if gold >= gold_threshold and elixir >= elixir_threshold and dark >= dark_elixir_threshold:
                     print("Resource thresholds met. Proceeding with attack.")
                     break
                 print("Threshold not met. Clicking next battle...")
@@ -168,18 +169,20 @@ if __name__ == "__main__":
                 (321, 479), (178, 288), (203, 271), (227, 258), (256, 230),
                 (295, 202), (318, 188), (357, 166), (383, 144), (406, 120),
                 (321, 479), (178, 288), (203, 271), (227, 258), (256, 230),
-                # (295, 202), (318, 188), (357, 166), (383, 144), (406, 120),
+                (295, 202), (318, 188), (357, 166), (383, 144), (406, 120),
             ]
 
-            spell_locations = [(588, 272), (494, 395), (583, 205), (636, 395), (632, 542)]
+            spell_locations = [(588, 272), (494, 395), (583, 205)
+            #, (636, 395), (632, 542)
+            ]
             ice_spell_locations = [(789, 345)]
 
             # More strategic hero deployment positions
             hero_locations = [(149, 320), (194, 379), (214, 261), (157, 325)]
 
-            deploy_troop_at_locations("ui_main_base/super_minion", troop_locations)
+            deploy_troop_at_locations("ui_main_base/troops/valkyrie", troop_locations)
             time.sleep(random.uniform(6,7))
-            deploy_troop_at_locations("ui_main_base/rage_spell", spell_locations)
+            deploy_troop_at_locations("ui_main_base/spells/heal", spell_locations)
             time.sleep(random.uniform(0.2, 0.5))
             # deploy_troop_at_locations("ui_main_base/ice_spell", spell_locations)
             # time.sleep(random.uniform(0.2, 0.5))
@@ -197,7 +200,7 @@ if __name__ == "__main__":
                 print("Return home button not detected yet. Waiting...")
                 time.sleep(2)
             detect_and_tap_button("ui_main_base/return_home", "screen.png")
-            time.sleep(random.uniform(0.2, 0.5))
+            time.sleep(random.uniform(2, 3))
             take_screenshot("screen.png")
             detect_and_tap_button("ui_main_base/okay_button", "screen.png")
             time.sleep(4)
