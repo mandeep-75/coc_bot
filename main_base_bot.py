@@ -14,7 +14,7 @@ RANDOM_OFFSET_SPELLS = 15
 
 gold_threshold = 500000
 elixir_threshold = 500000
-dark_elixir_threshold = 500
+dark_elixir_threshold = 0
 max_trophies_attack_threshold = 100
 
 troop_locations = [
@@ -22,7 +22,7 @@ troop_locations = [
     (321, 479), (178, 288), (203, 271), (227, 258), (256, 230),
     (295, 202), (318, 188), (357, 166), (383, 144), (406, 120),
     (321, 479), (178, 288), (203, 271), (227, 258), (256, 230),
-    (295, 202), (318, 188), (357, 166), (383, 144), (406, 120),
+   # (295, 202), (318, 188), (357, 166), (383, 144), (406, 120),
 ]
 
 spell_locations = [
@@ -32,7 +32,7 @@ spell_locations = [
 ice_spell_locations = [
     (789, 345)
 ]
-#needs to match max number of heroes due to i am zipping or matching heroes with one set of coordinates
+#needs to match max number of heroes due to i am zipping or matching heroes with one set of coordinates each
 hero_locations = [
     (149, 320), (194, 379), (214, 261), (157, 325),(214, 261)
 ]
@@ -86,7 +86,7 @@ def detect_button_on_screen(button_folder, screenshot_path, threshold=0.8):
         print(f"Button detected at ({center_x}, {center_y}) with confidence {best_val}")
         return center_x, center_y
     else:
-        print("No button detected above threshold from all images in folder")
+        print(f"No button detected above threshold from all images in folder:{button_folder}")
         return None
 
 def detect_and_tap_button(button_folder, screenshot_path, threshold=0.9):
@@ -144,7 +144,8 @@ def deploy_all_heroes(hero_folder_root, hero_locations, screenshot_path="screen.
     """
     hero_folders = [os.path.join(hero_folder_root, name) for name in os.listdir(hero_folder_root)
                     if os.path.isdir(os.path.join(hero_folder_root, name))] 
-    print(f"detected heroes folders are {hero_folders}")             
+    print(f"detected heroes folders are {hero_folders}") 
+    random.shuffle(hero_folders)
     shuffled_locations = hero_locations[:]
     random.shuffle(shuffled_locations)
     for folder, loc in zip(hero_folders, shuffled_locations):
@@ -217,7 +218,7 @@ if __name__ == "__main__":
                         break
                 print("Threshold not met. Clicking next battle...")
                 detect_and_tap_button("ui_main_base/next_button", "screen.png")      
-                time.sleep(random.uniform(4, 4.5))
+                time.sleep(random.uniform(4.5, 5))
                 take_screenshot("screen.png")
                 attempt += 1
 
