@@ -5,10 +5,38 @@ import os
 import glob
 import time
 import sys
-from text_detect_resource import get_resource_values
+from utils.text_detect_resource import get_resource_values
 
-RANDOM_OFFSET = 6  # pixels
-RANDOM_OFFSET_SPELLS = 15  # pixels
+RANDOM_OFFSET = 6
+RANDOM_OFFSET_SPELLS = 15
+
+gold_threshold = 900000
+elixir_threshold = 900000
+dark_elixir_threshold = 500
+max_trophies_attack_threshold = 10000
+
+troop_locations = [
+    (173, 380), (198, 395), (220, 413), (252, 438), (293, 464),
+    (321, 479), (178, 288), (203, 271), (227, 258), (256, 230),
+    (295, 202), (318, 188), (357, 166), (383, 144), (406, 120),
+    (321, 479), (178, 288), (203, 271), (227, 258), (256, 230),
+    (295, 202), (318, 188), (357, 166), (383, 144), (406, 120),
+]
+
+spell_locations = [
+    (588, 272), (494, 395), (583, 205), (636, 395), (632, 500)
+]
+
+ice_spell_locations = [
+    (789, 345)
+]
+
+hero_locations = [
+    (149, 320), (194, 379), (214, 261), (157, 325)
+]
+
+
+
 def human_tap(base_x, base_y, offset):
     x = base_x + random.randint(-offset, offset)
     y = base_y + random.randint(-offset, offset)
@@ -129,10 +157,6 @@ def human_swipe(start_x=300, start_y=300, end_x=300, end_y=600, min_duration=200
     except subprocess.CalledProcessError as e:
         print(f"Failed to execute swipe: {e}")
 
-# Resource thresholds (set as needed)
-gold_threshold = 900000
-elixir_threshold = 900000
-dark_elixir_threshold = 5000
 
 if __name__ == "__main__":
     loop_count = 0
@@ -167,32 +191,21 @@ if __name__ == "__main__":
             while True:
                 resources = get_resource_values("screen.png")
                 print(f"Attempt {attempt}: Detected resources: {resources}")
-                gold = int(resources.get('gold', 0) or 0)
-                elixir = int(resources.get('elixir', 0) or 0)
-                dark = int(resources.get('dark_elixir', 0) or 0)
+                gold = resources.get('gold')
+                elixir = resources.get('elixir')
+                dark = resources.get('dark_elixir')
+                trophies = resources.get('trophies')
                 if gold >= gold_threshold and elixir >= elixir_threshold and dark >= dark_elixir_threshold:
                     print("Resource thresholds met. Proceeding with attack.")
-                    break
+                    print("checking trophies")
+                    if trophies != 0 and trophies <= max_trophies_attack_threshold:
+                        print("trophies also good")  
+                        break
                 print("Threshold not met. Clicking next battle...")
-                detect_and_tap_button("ui_main_base/next_button", "screen.png")
-                time.sleep(random.uniform(5, 6))
+                detect_and_tap_button("ui_main_base/next_button", "screen.png")      
+                time.sleep(random.uniform(4, 4.5))
                 take_screenshot("screen.png")
                 attempt += 1
-
-            troop_locations = [
-                (173, 380), (198, 395), (220, 413), (252, 438), (293, 464),
-                (321, 479), (178, 288), (203, 271), (227, 258), (256, 230),
-                (295, 202), (318, 188), (357, 166), (383, 144), (406, 120),
-                (321, 479), (178, 288), (203, 271), (227, 258), (256, 230),
-                #(295, 202), (318, 188), (357, 166), (383, 144), (406, 120),
-            ]
-
-            spell_locations = [(588, 272), (494, 395), (583, 205), (636, 395), (632, 500)
-            ]
-            ice_spell_locations = [(789, 345)]
-
-            # More strategic hero deployment positions
-            hero_locations = [(149, 320), (194, 379), (214, 261), (157, 325)]
 
             deploy_troop_at_locations("ui_main_base/troops/super_minion", troop_locations)
             deploy_troop_at_locations("ui_main_base/troops/valkyrie", troop_locations)
