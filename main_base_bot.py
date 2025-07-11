@@ -4,16 +4,18 @@ import cv2
 import os
 import glob
 import time
-import sys
 from utils.text_detect_resource import get_resource_values
 
-RANDOM_OFFSET = 6
+RANDOM_OFFSET = 4
+RANDOM_OFFSET_HEROES = 3
+# This is used for spells, which are deployed at a larger area
+# compared to troops, so we need a larger random offset.
 RANDOM_OFFSET_SPELLS = 15
 
-gold_threshold = 900000
-elixir_threshold = 900000
+gold_threshold = 500000
+elixir_threshold = 500000
 dark_elixir_threshold = 500
-max_trophies_attack_threshold = 10000
+max_trophies_attack_threshold = 100
 
 troop_locations = [
     (173, 380), (198, 395), (220, 413), (252, 438), (293, 464),
@@ -30,9 +32,9 @@ spell_locations = [
 ice_spell_locations = [
     (789, 345)
 ]
-
+#needs to match max number of heroes due to i am zipping or matching heroes with one set of coordinates
 hero_locations = [
-    (149, 320), (194, 379), (214, 261), (157, 325)
+    (149, 320), (194, 379), (214, 261), (157, 325),(214, 261)
 ]
 
 
@@ -96,6 +98,17 @@ def detect_and_tap_button(button_folder, screenshot_path, threshold=0.9):
     else:
         print(f"No button found in ui form folder: {button_folder}, continuing...")
         return False
+    
+#more accurate click for heroes    
+def detect_and_tap_button_precise(button_folder, screenshot_path, threshold=0.8):
+    coords = detect_button_on_screen(button_folder, screenshot_path, threshold)
+    if coords:
+        x, y = coords
+        human_tap(x, y, RANDOM_OFFSET_HEROES)
+        return True
+    else:
+        print(f"No button found in ui form folder: {button_folder}, continuing...")
+        return False
 
 def deploy_troop_at_locations(troop_button_folder, deployment_locations, screenshot_path="screen.png"):
     if detect_and_tap_button(troop_button_folder, screenshot_path):
@@ -130,22 +143,23 @@ def deploy_all_heroes(hero_folder_root, hero_locations, screenshot_path="screen.
     hero_locations: list of (x, y) tuples
     """
     hero_folders = [os.path.join(hero_folder_root, name) for name in os.listdir(hero_folder_root)
-                    if os.path.isdir(os.path.join(hero_folder_root, name))]
-    random.shuffle(hero_folders)              
+                    if os.path.isdir(os.path.join(hero_folder_root, name))] 
+    print(f"detected heroes folders are {hero_folders}")             
     shuffled_locations = hero_locations[:]
     random.shuffle(shuffled_locations)
     for folder, loc in zip(hero_folders, shuffled_locations):
-        if detect_and_tap_button(folder, screenshot_path):
-            human_tap(loc[0], loc[1], RANDOM_OFFSET)
+        if detect_and_tap_button_precise(folder, screenshot_path):
+            time.sleep(random.uniform(0.3, 0.7))
+            human_tap(loc[0], loc[1], RANDOM_OFFSET_HEROES)
             time.sleep(random.uniform(0.5, 1.5))
         else:
             print(f"Hero not found in image from folder: {folder}")
 
-def human_swipe(start_x=300, start_y=300, end_x=300, end_y=600, min_duration=200, max_duration=400):
-    sx = start_x + random.randint(-15, 15)
-    sy = start_y + random.randint(-15, 15)
-    ex = end_x + random.randint(-15, 15)
-    ey = end_y + random.randint(-15, 15)
+def human_swipe(start_x=300, start_y=300, end_x=300, end_y=600 ,offset=15, min_duration=200, max_duration=400 ):
+    sx = start_x + random.randint(-offset, offset)
+    sy = start_y + random.randint(-offset, offset)
+    ex = end_x + random.randint(-offset, offset)
+    ey = end_y + random.randint(-offset, offset)
     duration = random.randint(min_duration, max_duration)
     adb_command = [
         "adb", "shell", "input", "swipe",
@@ -185,7 +199,7 @@ if __name__ == "__main__":
                 detect_and_tap_button("ui_main_base/attack_button", "screen.png")
                 time.sleep(2)
             detect_and_tap_button("ui_main_base/find_match_button", "screen.png")
-            time.sleep(random.uniform(3.5, 4))
+            time.sleep(2)
             take_screenshot("screen.png")
             attempt = 1
             while True:
@@ -210,13 +224,12 @@ if __name__ == "__main__":
             deploy_troop_at_locations("ui_main_base/troops/super_minion", troop_locations)
             deploy_troop_at_locations("ui_main_base/troops/valkyrie", troop_locations)
             time.sleep(random.uniform(6,7))
-            deploy_spells_at_locations("ui_main_base/spells/rage", spell_locations)
             # deploy_spells_at_locations("ui_main_base/spells/heal", spell_locations)
-            time.sleep(random.uniform(0.2, 0.5))
-
+            # time.sleep(random.uniform(0.2, 0.5))
             # deploy_troop_at_locations("ui_main_base/ice_spell", spell_locations)
             # time.sleep(random.uniform(0.2, 0.5))
             deploy_all_heroes("ui_main_base/hero", hero_locations)
+            deploy_spells_at_locations("ui_main_base/spells/rage", spell_locations)
             time.sleep(random.uniform(6, 8))
             detect_and_tap_button("ui_main_base/hero/grand_warden","screen.png")
             detect_and_tap_button("ui_main_base/hero/minion_prince","screen.png")
