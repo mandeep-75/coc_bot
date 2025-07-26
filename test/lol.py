@@ -8,10 +8,10 @@ if image is None:
 
 # Define bounding boxes
 boxes = {
-    'Gold': (95, 95, 220, 120),
-    'Elixir': (95, 135, 220, 160),
-    'Dark Elixir': (95, 175, 200, 200),
-    "trophies": (92, 231, 128, 254) 
+    'Gold': (65, 95, 200, 120),
+    'Elixir': (65, 135, 200, 160),
+    'Dark Elixir': (65, 175, 150, 200),
+    "trophies": (62, 231, 108, 254) 
 }
 
 # Draw rectangles and labels

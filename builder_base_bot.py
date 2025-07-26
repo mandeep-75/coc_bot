@@ -23,7 +23,8 @@ def take_screenshot(local_path):
     local_path: where to save the screenshot locally
     """
     try:
-        cmd = f"adb exec-out screencap -p > {local_path}"
+       #s cmd = f"adb exec-out screencap -p > {local_path}"
+        cmd = f"adb -s 127.0.0.1:5555 exec-out screencap -p > {local_path}"
         subprocess.run(cmd, shell=True, check=True)
         print(f"Screenshot saved to {local_path}")
     except subprocess.CalledProcessError as e:

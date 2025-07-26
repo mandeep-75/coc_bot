@@ -5,7 +5,8 @@ import os
 import glob
 import time
 from utils.text_detect_resource import get_resource_values
-
+# =============================================================================
+selected_device = None
 # =============================================================================
 # CONFIGURATION SECTION - EASY TO MODIFY FOR NEW USERS
 # =============================================================================
@@ -18,8 +19,8 @@ RANDOM_OFFSET_SPELLS = 100 # For spell deployments (larger area)
 
 # Resource thresholds for base selection
 # Only attack bases that have at least these resources
-gold_threshold = 500000        # Minimum gold required
-elixir_threshold = 500000      # Minimum elixir required  
+gold_threshold = 50000        # Minimum gold required
+elixir_threshold = 50000     # Minimum elixir required  
 dark_elixir_threshold = 0      # Minimum dark elixir required
 max_trophies_attack_threshold = 30  # Maximum trophies to attack
 
@@ -60,18 +61,49 @@ hero_locations = [
 # =============================================================================
 # CORE FUNCTIONS
 # =============================================================================
+def select_devices():
+    """
+    Lists connected Android devices and allows user to select one.
+    
+    Returns:
+        Selected device ID or None if no devices found.
+    """
+    adb_command = ["adb", "devices"]
+    try:
+        result = subprocess.run(adb_command, capture_output=True, text=True, check=True)
+        devices = result.stdout.strip().split('\n')[1:]  # Skip the first line (header)
+        devices = [line.split('\t')[0] for line in devices if line.strip()]
+        
+        if not devices:
+            print("No devices connected.")
+            return None
+        
+        print("Connected devices:")
+        for i, device in enumerate(devices):
+            print(f"{i + 1}: {device}")
+        
+        choice = input("Select a device by number (or press Enter for first): ")
+        if choice.isdigit() and 1 <= int(choice) <= len(devices):
+            return devices[int(choice) - 1]
+        else:
+            return devices[0]  # Default to first device
+    except subprocess.CalledProcessError as e:
+        print(f"Failed to execute ADB command: {e}")
+        return None
 
+        
 def human_tap(base_x, base_y, offset):
     """
     Simulates human-like tapping with random offset.
     
-    Args:
+    Args:+++
         base_x, base_y: Base coordinates to tap
         offset: Random offset range for human-like behavior
     """
     x = base_x + random.randint(-offset, offset)
     y = base_y + random.randint(-offset, offset)
-    adb_command = ["adb", "shell", "input", "tap", str(x), str(y)]
+
+    adb_command = ["adb","-s",selected_device,"shell", "input", "tap", str(x), str(y)]
     try:
         subprocess.run(adb_command, check=True)
         print(f"Tapped at ({x}, {y})")
@@ -86,7 +118,8 @@ def take_screenshot(local_path):
         local_path: Where to save the screenshot
     """
     try:
-        cmd = f"adb exec-out screencap -p > {local_path}"
+        #s cmd = f"adb exec-out screencap -p > {local_path}"
+        cmd = f"adb -s {selected_device} exec-out screencap -p > {local_path}"
         subprocess.run(cmd, shell=True, check=True)
         print(f"Screenshot saved to {local_path}")
     except subprocess.CalledProcessError as e:
@@ -307,6 +340,9 @@ if __name__ == "__main__":
         try:
             loop_count += 1
             print(f"\n=== Starting Main Base Loop {loop_count} ===")
+            # Step 0: Get device info
+            if selected_device is None:
+                selected_device = select_devices()
             
             # Step 1: Collect resources from base
             take_screenshot("screen.png")
@@ -369,9 +405,9 @@ if __name__ == "__main__":
             
             # deploy_troop_at_locations("ui_main_base/troops/super_minion", troop_locations, 20)
             # deploy_troop_at_locations("ui_main_base/troops/super_minion", troop_locations, 25)
-            # deploy_troop_at_locations("ui_main_base/troops/valkyrie", troop_locations, 25)
-            deploy_troop_at_locations("ui_main_base/troops/dragon", troop_locations, 12)
-            deploy_troop_at_locations("ui_main_base/troops/ballon", troop_locations, 12)
+            deploy_troop_at_locations("ui_main_base/troops/valkyrie", troop_locations, 25)
+            #deploy_troop_at_locations("ui_main_base/troops/dragon", troop_locations, 12)
+            #deploy_troop_at_locations("ui_main_base/troops/ballon", troop_locations, 12)
 
             time.sleep(random.uniform(6,7))
             

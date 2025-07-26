@@ -35,10 +35,10 @@ def get_resource_values(screenshot_path):
         print(f"Failed to load screenshot: {screenshot_path}")
         return None
     # Wider bounding boxes for resource detection (x1, y1, x2, y2)
-    gold_bbox = (95, 95, 220, 120)    # Top left region - Gold
-    elixir_bbox = (95, 135, 220, 160) # Top center region - Elixir
-    dark_bbox = (95, 175, 200, 200)   # Top right region - Dark Elixir
-    trophies_bbox = (92, 231, 128, 254) # Bottom left region - Trophies 
+    gold_bbox = (65, 95, 200, 120)   # Top left region - Gold
+    elixir_bbox =(65, 135, 200, 160) # Top center region - Elixir
+    dark_bbox = (65, 175, 150, 200)   # Top right region - Dark Elixir
+    trophies_bbox = (62, 231, 108, 254) # Bottom left region - Trophies 
     # Crop regions
     gold_region = img[gold_bbox[1]:gold_bbox[3], gold_bbox[0]:gold_bbox[2]]
     elixir_region = img[elixir_bbox[1]:elixir_bbox[3], elixir_bbox[0]:elixir_bbox[2]]
