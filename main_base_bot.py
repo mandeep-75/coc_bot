@@ -367,11 +367,11 @@ if __name__ == "__main__":
             # Uncomment and modify the lines below to deploy your preferred troops
             # Format: deploy_troop_at_locations("troop_folder", troop_locations, number_of_units)
             
-            # deploy_troop_at_locations("ui_main_base/troops/super_minion", troop_locations, 20)
+            deploy_troop_at_locations("ui_main_base/troops/super_minion", troop_locations, 20)
             # deploy_troop_at_locations("ui_main_base/troops/super_minion", troop_locations, 25)
             # deploy_troop_at_locations("ui_main_base/troops/valkyrie", troop_locations, 25)
-            deploy_troop_at_locations("ui_main_base/troops/dragon", troop_locations, 12)
-            deploy_troop_at_locations("ui_main_base/troops/ballon", troop_locations, 12)
+            #deploy_troop_at_locations("ui_main_base/troops/dragon", troop_locations, 12)
+            #deploy_troop_at_locations("ui_main_base/troops/ballon", troop_locations, 12)
 
             time.sleep(random.uniform(6,7))
             
