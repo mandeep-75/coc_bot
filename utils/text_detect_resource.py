@@ -37,21 +37,21 @@ def get_resource_values(screenshot_path):
     # Wider bounding boxes for resource detection (x1, y1, x2, y2)
     gold_bbox = (65, 95, 200, 120)   # Top left region - Gold
     elixir_bbox =(65, 135, 200, 160) # Top center region - Elixir
-    dark_bbox = (65, 175, 150, 200)   # Top right region - Dark Elixir
-    trophies_bbox = (62, 231, 108, 254) # Bottom left region - Trophies 
+    dark_bbox = (65, 175, 170, 200)   # Top right region - Dark Elixir
+
     # Crop regions
     gold_region = img[gold_bbox[1]:gold_bbox[3], gold_bbox[0]:gold_bbox[2]]
     elixir_region = img[elixir_bbox[1]:elixir_bbox[3], elixir_bbox[0]:elixir_bbox[2]]
     dark_region = img[dark_bbox[1]:dark_bbox[3], dark_bbox[0]:dark_bbox[2]]
-    trophies_region = img[trophies_bbox[1]:trophies_bbox[3], trophies_bbox[0]:trophies_bbox[2]]
+    
 
     gold_value = get_image_values(gold_region)
     elixir_value = get_image_values(elixir_region)
     dark_value = get_image_values(dark_region)
-    trophies_value = get_image_values(trophies_region,"dark_elixir")
 
-    print(f"Gold: {gold_value}, Elixir: {elixir_value}, Dark Elixir: {dark_value}, Trophies: {trophies_value}")
-    return {'gold': gold_value, 'elixir': elixir_value, 'dark_elixir': dark_value , 'trophies': trophies_value}
+
+   
+    return {'gold': gold_value, 'elixir': elixir_value, 'dark_elixir': dark_value }
 
 if __name__ == "__main__":
     # Example usage
