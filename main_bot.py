@@ -127,7 +127,7 @@ def detect_button_on_screen(button_folder, screenshot_path=SCREENSHOT_NAME, thre
         return x, y
     return None
 
-def detect_and_tap_button(button_folder, screenshot_path=SCREENSHOT_NAME, threshold=0.9):
+def detect_and_tap_button(button_folder, screenshot_path=SCREENSHOT_NAME, threshold=0.8):
     coords = detect_button_on_screen(button_folder, screenshot_path, threshold)
     if coords:
         human_tap(*coords, RANDOM_OFFSET)
@@ -135,11 +135,15 @@ def detect_and_tap_button(button_folder, screenshot_path=SCREENSHOT_NAME, thresh
     return False
 
 def detect_and_tap_button_precise(button_folder, screenshot_path=SCREENSHOT_NAME, threshold=0.8):
+    """
+    Precise tapping for heroes. Returns coordinates if found, else None.
+    """
     coords = detect_button_on_screen(button_folder, screenshot_path, threshold)
     if coords:
         human_tap(*coords, RANDOM_OFFSET_HEROES)
-        return True
-    return False
+        return coords  # ✅ Return the (x, y) tuple instead of True
+    return None  # ❌ Not found
+
 
 # =============================================================================
 # DEPLOYMENT FUNCTIONS
@@ -155,7 +159,7 @@ def deploy_troop_at_locations(troop_button_folder, locations, units):
     for i, (x, y) in enumerate(coords):
         human_tap(x, y, RANDOM_OFFSET)
         print(f"Troop {i + 1}/{units} at ({x},{y})")
-        time.sleep(random.uniform(0.3, 0.5))
+        time.sleep(random.uniform(0.1, 0.3))
     return True
 
 def deploy_spells_at_locations(spell_button_folder, locations):
@@ -168,15 +172,78 @@ def deploy_spells_at_locations(spell_button_folder, locations):
         time.sleep(random.uniform(0.3, 0.5))
     return True
 
+# =============================================================================
+# HERO DEPLOYMENT + RETAP LOGIC (By Name)
+# =============================================================================
+
+# Global dictionary to store deployed hero coordinates
+deployed_heroes = {}  # e.g. {"grand_warden": (x, y), "barbarian_king": (x, y)}
+
 def deploy_all_heroes(hero_folder_root, hero_locations):
-    hero_folders = [os.path.join(hero_folder_root, h) for h in os.listdir(hero_folder_root)
-                    if os.path.isdir(os.path.join(hero_folder_root, h))]
+    global deployed_heroes
+    deployed_heroes = {}
+
+    hero_folders = [
+        os.path.join(hero_folder_root, h)
+        for h in os.listdir(hero_folder_root)
+        if os.path.isdir(os.path.join(hero_folder_root, h))
+    ]
+
     random.shuffle(hero_folders)
     random.shuffle(hero_locations)
+
     for folder, loc in zip(hero_folders, hero_locations):
-        if detect_and_tap_button_precise(folder):
+        hero_name = os.path.basename(folder).lower()
+        coords = detect_and_tap_button_precise(folder)
+
+        if coords:  # ✅ coords is now a tuple, not a bool
+            print(f"🦸 Deploying {hero_name} at {loc}")
             human_tap(loc[0], loc[1], RANDOM_OFFSET_HEROES)
+            deployed_heroes[hero_name] = coords
             time.sleep(random.uniform(0.5, 1.5))
+        else:
+            print(f"⚠️ {hero_name} not found on screen")
+
+    print(f"✅ Stored hero coordinates: {deployed_heroes}")
+
+
+
+def retap_hero_by_name(hero_name):
+    """
+    Retaps a specific hero (by name) to trigger its ability.
+    Example: retap_hero_by_name('grand_warden')
+    """
+    global deployed_heroes
+    hero_name = hero_name.lower()
+
+    if hero_name not in deployed_heroes:
+        print(f"⚠️ Hero '{hero_name}' not found in stored coordinates.")
+        return
+
+    x, y = deployed_heroes[hero_name]
+    print(f"⚔️ Retapping {hero_name} at ({x}, {y})")
+    human_tap(x, y, RANDOM_OFFSET_HEROES)
+    time.sleep(random.uniform(0.4, 0.8))
+
+
+def retap_all_heroes():
+    """
+    Retaps all previously deployed heroes (activates all abilities).
+    """
+    global deployed_heroes
+
+    if not deployed_heroes:
+        print("⚠️ No stored heroes to retap.")
+        return
+
+    print(f"⚔️ Retapping all {len(deployed_heroes)} heroes...")
+    for hero_name, (x, y) in deployed_heroes.items():
+        print(f"✨ Activating {hero_name} ability...")
+        human_tap(x, y, RANDOM_OFFSET_HEROES)
+        time.sleep(random.uniform(0.4, 0.8))
+
+    print("✅ All hero abilities triggered successfully.")
+
 
 # =============================================================================
 # MAIN BOT LOOP
@@ -243,7 +310,7 @@ if __name__ == "__main__":
             search_start = time.time()
 
             while True:
-                if time.time() - search_start > 30:
+                if time.time() - search_start > 120:
                     print("⏭️ Timeout searching for base (no progress). Skipping attack.")
                     break
 
@@ -280,13 +347,12 @@ if __name__ == "__main__":
                 attempt += 1
 
             # Step 5: Deploy troops, heroes, spells
-            deploy_troop_at_locations("ui_main_base/troops/super_minion", troop_locations, 28)
+            deploy_troop_at_locations("ui_main_base/troops/super_minion", troop_locations, 24)
             time.sleep(random.uniform(6, 7))
             deploy_all_heroes("ui_main_base/hero", hero_locations)
             deploy_spells_at_locations("ui_main_base/spells/rage", spell_locations)
             time.sleep(random.uniform(6, 8))
-            detect_and_tap_button("ui_main_base/hero/grand_warden")
-            detect_and_tap_button("ui_main_base/hero/minion_prince")
+            retap_hero_by_name('grand_warden')
 
             # Step 6: Wait for Return Home
             print("Waiting for 'Return Home'...")
@@ -300,6 +366,16 @@ if __name__ == "__main__":
                     time.sleep(random.uniform(4, 4.5))
                     detect_and_tap_button("ui_main_base/okay_button")
                     break
+                if time.time() - home_wait_start > random.uniform(10, 20):
+                    print("Force Quitting match")
+                    take_screenshot()
+                    detect_and_tap_button("ui_main_base/end_battle")
+                    detect_and_tap_button("ui_main_base/surrender_button")
+                    take_screenshot()
+                    detect_and_tap_button("ui_main_base/okay_button")
+                    take_screenshot
+                    detect_and_tap_button("ui_main_base/return_home")
+
                 time.sleep(random.uniform(3, 3.5))
                 take_screenshot()
 
