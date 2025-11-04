@@ -114,70 +114,101 @@ class WallUpgradeManager:
         return False
 
     def _attempt_single_upgrade(self, hooks: Dict[str, Callable]) -> bool:
+        import cv2
         time.sleep(random.uniform(0.4, 0.8))
-        upgrade_found = False
-        for _ in range(3):
-            hooks['take_screenshot']()
-            center = self._find_text_center_on_screen("@pgrade", hooks, region=self.target_text_region)
-            if center:
-                print(f"✅ Found Upgrade at {center}; tapping")
-                hooks['human_tap'](center[0], center[1], self.random_offset)
-                upgrade_found = True
-                time.sleep(random.uniform(0.3, 0.6))
-                break
-            time.sleep(0.2)
 
-        confirm_found = False
-        for _ in range(3):
-            hooks['take_screenshot']()
-            center = (
-                self._find_text_center_on_screen("Coufian", hooks, region=self.target_text_region)
-                or self._find_text_center_on_screen("Confian", hooks, region=self.target_text_region)
-            )
-            if center:
-                print(f"✅ Found Confirm at {center}; tapping")
-                hooks['human_tap'](center[0], center[1], self.random_offset)
-                confirm_found = True
-                time.sleep(random.uniform(0.3, 0.6))
-                break
-            time.sleep(1)
+        # Collect all candidate Upgrade buttons by OCR (e.g., matches "@pgrade")
+        hooks['take_screenshot']()
+        img = cv2.imread(self.screenshot_name)
+        if img is None:
+            return False
+        region = self.target_text_region
+        if region is not None:
+            x1, y1, x2, y2 = region
+            crop = img[y1:y2, x1:x2]
+        else:
+            crop = img
 
-        if self.okay_button_folder:
-            hooks['take_screenshot']()
-            gem_coords = hooks['detect_button'](self.okay_button_folder)
-            if gem_coords:
-                hooks['human_tap'](gem_coords[0], gem_coords[1], self.random_offset)
-                time.sleep(random.uniform(0.25, 0.5))
+        results = self._ocr_reader.readtext(crop)
+        candidates: List[Tuple[int, int]] = []
+        for (bbox, text, _conf) in results:
+            if text and "@pgrade" in text.lower():
+                xs = [p[0] for p in bbox]
+                ys = [p[1] for p in bbox]
+                cx = int(sum(xs) / 4)
+                cy = int(sum(ys) / 4)
+                if region is not None:
+                    cx += region[0]
+                    cy += region[1]
+                candidates.append((cx, cy))
 
-        if self.gem_icon_folder:
-            hooks['take_screenshot']()
-            gem_coords = hooks['detect_button'](self.gem_icon_folder)
-            if gem_coords:
-                print("💎 Gem icon detected; closing dialog (2 taps)")
-                for _ in range(2):
-                    hooks['take_screenshot']()
-                    close_coords = hooks['detect_button'](self.close_button_folder)
-                    if close_coords:
-                        hooks['human_tap'](close_coords[0], close_coords[1], self.random_offset)
-                        time.sleep(random.uniform(0.25, 0.5))
-                self.last_gem_abort = True
-                return False
+        # Consider at most two upgrade buttons per selection
+        candidates = candidates[:2]
 
-        return upgrade_found or confirm_found
+        # Try each candidate upgrade button until one does NOT trigger a gem dialog
+        for idx, (ux, uy) in enumerate(candidates):
+            print(f"✅ Found Upgrade[{idx+1}/{len(candidates)}] at ({ux}, {uy}); tapping")
+            hooks['human_tap'](ux, uy, self.random_offset)
+            time.sleep(random.uniform(0.3, 0.6))
+
+            # Try to find and tap confirm
+            confirm_found = False
+            for _ in range(3):
+                hooks['take_screenshot']()
+                center = (
+                    self._find_text_center_on_screen("Coufian", hooks, region=self.target_text_region)
+                    or self._find_text_center_on_screen("Confian", hooks, region=self.target_text_region)
+                )
+                if center:
+                    print(f"✅ Found Confirm at {center}; tapping")
+                    hooks['human_tap'](center[0], center[1], self.random_offset)
+                    confirm_found = True
+                    time.sleep(random.uniform(0.3, 0.6))
+                    break
+                time.sleep(1)
+
+            # Tap any OK dialog if present (not the gem icon)
+            if self.okay_button_folder:
+                hooks['take_screenshot']()
+                ok_coords = hooks['detect_button'](self.okay_button_folder)
+                if ok_coords:
+                    hooks['human_tap'](ok_coords[0], ok_coords[1], self.random_offset)
+                    time.sleep(random.uniform(0.25, 0.5))
+
+            # If gem dialog appears, close it and try the next upgrade button
+            if self.gem_icon_folder:
+                hooks['take_screenshot']()
+                gem_coords = hooks['detect_button'](self.gem_icon_folder)
+                if gem_coords:
+                    print("💎 Gem icon detected; closing dialog (2 taps) and trying next Upgrade")
+                    for _ in range(2):
+                        hooks['take_screenshot']()
+                        close_coords = hooks['detect_button'](self.close_button_folder)
+                        if close_coords:
+                            hooks['human_tap'](close_coords[0], close_coords[1], self.random_offset)
+                            time.sleep(random.uniform(0.25, 0.5))
+                    # Continue to next candidate
+                    continue
+
+            # No gem dialog detected after confirm/ok: treat as success
+            if confirm_found:
+                return True
+
+        # No candidate produced a non-gem flow
+        return False
 
     def perform_wall_upgrade_sequence(self, hooks: Dict[str, Callable]) -> bool:
-        """Select wall and attempt two upgrade buttons (gold, elixir) in sequence."""
+        """Select wall and attempt up to two upgrade buttons in this selection.
+
+        Will not attempt a third upgrade unless the wall selection process is executed again.
+        """
         self.last_gem_abort = False
         if not self.open_builder_menu_and_select_wall(hooks):
             return False
-        successes = 0
-        for _ in range(2):
-            if self.last_gem_abort:
-                break
-            if self._attempt_single_upgrade(hooks):
-                successes += 1
-            time.sleep(random.uniform(0.4, 0.7))
-        return successes > 0
+        # One invocation internally tries at most two buttons
+        ok = self._attempt_single_upgrade(hooks)
+        time.sleep(random.uniform(0.4, 0.7))
+        return ok
 
     def maybe_upgrade_walls(self, current_attack_count: int, hooks: Dict[str, Callable]) -> None:
         if self.next_wall_upgrade_at is None:
@@ -191,11 +222,24 @@ class WallUpgradeManager:
         hooks['detect_and_tap_button']("ui_main_base/okay_button")
         time.sleep(random.uniform(0.4, 0.8))
 
-        ok = self.perform_wall_upgrade_sequence(hooks)
-        if ok:
-            print("✅ Wall upgrade routine completed with at least one success.")
+        # Keep attempting new wall selections until we see three failed selections
+        failures = 0
+        total_successes = 0
+        while failures < 2:
+            ok = self.perform_wall_upgrade_sequence(hooks)
+            if ok:
+                total_successes += 1
+                print(f"✅ Wall upgrade selection success (total successes: {total_successes}). Attempting again…")
+                time.sleep(random.uniform(0.6, 1.0))
+            else:
+                failures += 1
+                print(f"ℹ️ Wall upgrade selection failed ({failures}/3).")
+                time.sleep(random.uniform(0.6, 1.0))
+
+        if total_successes > 0:
+            print(f"✅ Wall upgrade routine done after {total_successes} success(es), 3 consecutive failures.")
         else:
-            print("ℹ️ No wall upgrades applied this time.")
+            print("ℹ️ No wall upgrades applied; 3 consecutive failures.")
         self.schedule_next_wall_upgrade(current_attack_count)
 
 

@@ -45,6 +45,9 @@ max_trophies_attack_threshold = 30
 # UI template folders (add images accordingly)
 BUILD_MENU_BUTTON_FOLDER = "ui_main_base/builder_menu_button"
 
+# Simple toggle: enable/disable wall upgrades here
+WALL_UPGRADES_ENABLED = True
+
 # =============================================================================
 # DEPLOYMENT COORDINATES
 # =============================================================================
@@ -299,7 +302,7 @@ if __name__ == "__main__":
             detect_and_tap_button("ui_main_base/dark_elixir_collect")
 
             # Optional: attempt wall upgrades on a 5–7 attack cadence
-            if selected_device is not None:
+            if selected_device is not None and WALL_UPGRADES_ENABLED:
                 hooks = {
                     'device_id': selected_device,
                     'take_screenshot': lambda: take_screenshot(SCREENSHOT_NAME),
@@ -308,6 +311,9 @@ if __name__ == "__main__":
                     'detect_button': lambda folder: detect_button_on_screen(folder, SCREENSHOT_NAME),
                 }
                 wall_manager.maybe_upgrade_walls(loop_count, hooks)
+            elif selected_device is not None and not WALL_UPGRADES_ENABLED:
+                # Soft log once per loop when disabled
+                print("(Wall upgrades disabled)")
 
             # Step 2: Wait for Attack button (max 3:30)
             start_wait = time.time()
