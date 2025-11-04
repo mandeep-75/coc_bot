@@ -1,7 +1,19 @@
 import cv2
-import pytesseract
 import numpy as np
 import re
+import easyocr
+try:
+    import torch
+    _gpu_available = bool(
+        getattr(torch, 'cuda', None) and torch.cuda.is_available()
+    ) or bool(
+        getattr(torch.backends, 'mps', None) and torch.backends.mps.is_available()
+    )
+except Exception:
+    _gpu_available = False
+
+_easyocr_reader = easyocr.Reader(['en'], gpu=_gpu_available)
+
 
 def extract_resource_text(screenshot_path):
     img = cv2.imread(screenshot_path)
@@ -9,8 +21,8 @@ def extract_resource_text(screenshot_path):
         print(f"Failed to load screenshot: {screenshot_path}")
         return None
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    text = pytesseract.image_to_string(gray, config='--psm 6')
-    return text
+    texts = _easyocr_reader.readtext(gray, detail=0)
+    return " ".join(texts)
 
 
 def normalize_value(value):
@@ -34,10 +46,9 @@ def normalize_value(value):
 def get_image_values(image, filter="null"):
     image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     image_blur = cv2.GaussianBlur(image_gray, (5, 5), 0)
-    image_text = pytesseract.image_to_string(
-        image_blur, config='--psm 7 -c tessedit_char_whitelist=0123456789'
-    )
-    image_value = re.sub(r'\D', '', image_text)
+    texts = _easyocr_reader.readtext(image_blur, detail=0)
+    concatenated = "".join(texts) if texts else ""
+    image_value = re.sub(r'\D', '', concatenated)
 
     if not image_value:
         return 0

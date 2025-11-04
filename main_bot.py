@@ -5,6 +5,7 @@ import os
 import glob
 import time
 from utils.text_detect_resource import get_resource_values
+from utils.wall_upgrade import WallUpgradeManager
 
 # =============================================================================
 # GLOBAL VARIABLES
@@ -26,6 +27,9 @@ average_gold = 0
 average_elixir = 0
 average_dark = 0
 
+# Wall upgrade manager
+wall_manager = None
+
 # =============================================================================
 # CONFIGURATION
 # =============================================================================
@@ -37,6 +41,9 @@ gold_threshold = 1000000
 elixir_threshold = 1000000
 dark_elixir_threshold = 0
 max_trophies_attack_threshold = 30
+
+# UI template folders (add images accordingly)
+BUILD_MENU_BUTTON_FOLDER = "ui_main_base/builder_menu_button"
 
 # =============================================================================
 # DEPLOYMENT COORDINATES
@@ -57,6 +64,8 @@ spell_locations = [
 hero_locations = [
     (149, 320), (194, 379), (214, 261), (157, 325), (214, 261)
 ]
+
+
 
 # =============================================================================
 # DEVICE & INTERACTION FUNCTIONS
@@ -93,6 +102,8 @@ def human_tap(base_x, base_y, offset):
         print(f"Tapped at ({x}, {y})")
     except subprocess.CalledProcessError as e:
         print(f"Failed to tap: {e}")
+
+ 
 
 def take_screenshot(local_path=SCREENSHOT_NAME):
     try:
@@ -143,6 +154,9 @@ def detect_and_tap_button_precise(button_folder, screenshot_path=SCREENSHOT_NAME
         human_tap(*coords, RANDOM_OFFSET_HEROES)
         return coords  # ✅ Return the (x, y) tuple instead of True
     return None  # ❌ Not found
+
+
+ 
 
 
 # =============================================================================
@@ -245,12 +259,25 @@ def retap_all_heroes():
     print("✅ All hero abilities triggered successfully.")
 
 
+# (Wall upgrade-related logic moved to wall_upgrade.WallUpgradeManager)
+
+
 # =============================================================================
 # MAIN BOT LOOP
 # =============================================================================
 if __name__ == "__main__":
     loop_count = 0
     start_time = time.time()
+
+    # Initialize wall upgrade manager
+    wall_manager = WallUpgradeManager(
+        builder_menu_button_folder=BUILD_MENU_BUTTON_FOLDER,
+        screenshot_name=SCREENSHOT_NAME,
+        random_offset=RANDOM_OFFSET,
+        okay_button_folder="ui_main_base/okay_button",
+        gem_icon_folder="ui_main_base/gem_icon_folder",
+        close_button_folder="ui_main_base/close_button_folder",
+    )
 
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write("\n\n===== NEW BOT SESSION STARTED =====\n")
@@ -270,6 +297,17 @@ if __name__ == "__main__":
             detect_and_tap_button("ui_main_base/gold_collect")
             detect_and_tap_button("ui_main_base/elixir_collect")
             detect_and_tap_button("ui_main_base/dark_elixir_collect")
+
+            # Optional: attempt wall upgrades on a 5–7 attack cadence
+            if selected_device is not None:
+                hooks = {
+                    'device_id': selected_device,
+                    'take_screenshot': lambda: take_screenshot(SCREENSHOT_NAME),
+                    'detect_and_tap_button': lambda folder: detect_and_tap_button(folder, SCREENSHOT_NAME),
+                    'human_tap': lambda x, y, offset: human_tap(x, y, offset),
+                    'detect_button': lambda folder: detect_button_on_screen(folder, SCREENSHOT_NAME),
+                }
+                wall_manager.maybe_upgrade_walls(loop_count, hooks)
 
             # Step 2: Wait for Attack button (max 3:30)
             start_wait = time.time()
