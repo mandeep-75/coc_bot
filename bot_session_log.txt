@@ -6,3 +6,18 @@ Attack 1: Gold=1,016,090, Elixir=998,369, Dark=43,601
 Attack 2: Gold=1,012,168, Elixir=307,845, Dark=21,879
 Attack 3: Gold=1,064,215, Elixir=64,229, Dark=9,042
 Attack 4: Gold=1,305,821, Elixir=229,094, Dark=655
+Attack 5: Gold=1,071,994, Elixir=312,097, Dark=435
+
+===== SESSION SUMMARY =====
+Attacks: 5
+Average Gold: 1,094,057.6
+Average Elixir: 382,326.8
+Average Dark: 15,122.4
+Runtime: 12.8 mins
+============================
+
+
+===== NEW BOT SESSION STARTED =====
+Start Time: 2025-11-04 19:05:27
+Attack 1: Gold=2,000,000, Elixir=264,520, Dark=14,780
+Attack 2: Gold=545,287, Elixir=1,243,267, Dark=12,679

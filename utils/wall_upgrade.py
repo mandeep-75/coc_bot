@@ -142,12 +142,13 @@ class WallUpgradeManager:
                     cy += region[1]
                 candidates.append((cx, cy))
 
-        # Consider at most two upgrade buttons per selection
-        candidates = candidates[:2]
+        # Consider only the last two upgrade buttons per selection (tap from the end)
+        candidates = candidates[-2:]
 
         # Try each candidate upgrade button until one does NOT trigger a gem dialog
-        for idx, (ux, uy) in enumerate(candidates):
-            print(f"✅ Found Upgrade[{idx+1}/{len(candidates)}] at ({ux}, {uy}); tapping")
+        ordered = list(reversed(candidates))  # start from the last, then second-last
+        for idx, (ux, uy) in enumerate(ordered):
+            print(f"✅ Found Upgrade[{idx+1}/{len(ordered)}] at ({ux}, {uy}); tapping")
             hooks['human_tap'](ux, uy, self.random_offset)
             time.sleep(random.uniform(0.3, 0.6))
 
