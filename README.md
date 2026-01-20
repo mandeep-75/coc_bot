@@ -5,7 +5,7 @@ It is designed to run fully from the **terminal (no GUI)** using **ADB + image r
 Optimized for farming and hands-free gameplay.
 
 
-#IN ACTION VIDEO
+# IN ACTION VIDEO
 
 https://github.com/user-attachments/assets/b609796c-f414-47ae-aeb2-35f4bfbc7c7b
 
