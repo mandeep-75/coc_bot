@@ -1,6 +1,6 @@
 # coc Bot (Terminal-Based)
 
-This is a **personal-use coc bot** built to automate attacks in both **Main Village** and **Builder Base**.  
+This is a **personal-use coc bot** built to automate attacks in **Main Village**.  
 It is designed to run fully from the **terminal (no GUI)** using **ADB + image recognition**.  
 Optimized for farming and hands-free gameplay.
 
@@ -19,10 +19,6 @@ Optimized for farming and hands-free gameplay.
   - Works best with optimized army compositions.
   - Avoids poor bases, improving chances of consistent wins.
 
-- 🏗️ **Builder Base Support**
-
-  - Supports automated Builder Base battles.
-  - Base detection and troop drop timing optimized for Builder mode.
 
 - 🎯 **Custom Threshold Settings**
 
@@ -32,5 +28,33 @@ Optimized for farming and hands-free gameplay.
 - 🖥️ **Terminal-Based Only**
   - Simple, fast, and lightweight.
   - No GUI, no mouse simulation — just clean CLI execution.
+
+---
+
+## 🚀 Improvements & New Features
+
+### 1. Configuration File (`config.py`)
+All settings (loot thresholds, deployment coordinates, file paths) are now in `config.py`.  
+Edit this file to change your bot's behavior without touching the code.
+
+### 2. Discord Notifications
+Get real-time updates on your attacks!
+1. Open `config.py`.
+2. Add your **Discord Webhook URL** to `DISCORD_WEBHOOK_URL`.
+3. The bot will send a summary after every successful attack.
+
+### 3. Command Line Arguments
+Run the bot with specific options:
+```bash
+# Run with a specific device ID
+python main.py --device <DEVICE_ID>
+
+# Run with a specific Discord Webhook (overrides config)
+python main.py --webhook <URL>
+```
+
+### 4. Wall Upgrades
+under dev 
+The bot can automatically upgrade walls if you have excess resources. Enable `WALL_UPGRADES_ENABLED` in `config.py`.
 
 ---
