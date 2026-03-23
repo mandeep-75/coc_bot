@@ -1,0 +1,9 @@
+opencv-python
+easyocr
+numpy
+Pillow
+
+# Development tools
+ruff
+black
+mypy

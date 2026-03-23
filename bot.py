@@ -1,277 +1,342 @@
 import time
 import random
+import os
+import itertools
 import config
-from utils import notifier
+from deployment_config import DeploymentConfig
 from utils.text_detect_resource import get_resource_values
-from utils.wall_upgrade import WallUpgradeManager
+
 
 class CoCBot:
-    def __init__(self, device_controller, webhook_url=None):
+    def __init__(self, device_controller, webhook_url=None, deployment_config=None):
         self.device = device_controller
         self.webhook_url = webhook_url
         
+        # Use provided config or create new one
+        self.deploy_config = deployment_config or DeploymentConfig()
+        
         self.loop_count = 0
         self.start_time = time.time()
+        self.stop_flag = False
         
-        # Session stats
         self.session_gold = 0
         self.session_elixir = 0
         self.session_dark = 0
         self.last_resources = None
-
-        # Components
-        self.wall_manager = WallUpgradeManager(
-            builder_menu_button_folder=config.BUILD_MENU_BUTTON_FOLDER,
-            screenshot_name=config.SCREENSHOT_NAME,
-            random_offset=config.RANDOM_OFFSET,
-            okay_button_folder="ui_main_base/okay_button",
-            gem_icon_folder="ui_main_base/gem_icon_folder",
-            close_button_folder="ui_main_base/close_button_folder",
-        )
-        
-        # Hero positions state
         self.deployed_heroes = {}
 
+        self.flow = config.FLOW_CONFIG
+
+    def stop(self):
+        """Signal the bot to stop after current loop."""
+        self.stop_flag = True
+    
     def run(self):
         """Main Bot Loop"""
-        notifier.send_session_start(self.webhook_url)
+        self._print_flow()
+        self.stop_flag = False
         
         with open(config.LOG_FILE, "a", encoding="utf-8") as f:
             f.write("\n\n===== NEW BOT SESSION STARTED =====\n")
             f.write(f"Start Time: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
 
-        while True:
+        while not self.stop_flag:
             try:
                 self.loop_count += 1
-                print(f"\n=== MAIN LOOP {self.loop_count} START ===")
-
-                self.collect_resources()
-                self.upgrade_walls()
-                
-                # Attack sequence
-                if self.find_match():
-                    if self.search_for_base():
-                        self.perform_attack()
-                        self.return_home()
-                
-                self.log_summary()
-
+                print(f"\n{'='*20} LOOP {self.loop_count} {'='*20}")
+                self._run_flow()
+                self._log_summary()
             except Exception as e:
-                print(f"⚠️ Error in loop: {e}")
+                print(f"Error in loop: {e}")
                 time.sleep(5)
+        
+        print("\n Bot stopped gracefully.")
 
-    def collect_resources(self):
-        print("Collecting resources...")
-        self.device.take_screenshot()
-        self.device.detect_and_tap("ui_main_base/gold_collect")
-        self.device.detect_and_tap("ui_main_base/elixir_collect")
-        self.device.detect_and_tap("ui_main_base/dark_elixir_collect")
+    def _print_flow(self):
+        """Print the flow of tasks at startup."""
+        print("\n" + "="*50)
+        print("BOT FLOW CONFIGURATION")
+        print("="*50)
+        for task, enabled in self.flow.items():
+            status = "[ON]" if enabled else "[OFF]"
+            print(f"  {status} {task}")
+        print("="*50 + "\n")
 
-    def upgrade_walls(self):
-        if not config.WALL_UPGRADES_ENABLED:
+    def _run_flow(self):
+        """Run each enabled task in order."""
+        if self.flow.get("collect_gold"):
+            self._collect_resource("gold_collect", "Gold")
+        if self.flow.get("collect_elixir"):
+            self._collect_resource("elixir_collect", "Elixir")
+        if self.flow.get("collect_dark_elixir"):
+            self._collect_resource("dark_elixir_collect", "Dark Elixir")
+
+        if not self.flow.get("find_match"):
             return
 
-        # Hooks adapter for the existing WallUpgradeManager
-        # It expects specific function signatures
-        hooks = {
-            'device_id': self.device.device_id,
-            'take_screenshot': lambda: self.device.take_screenshot(config.SCREENSHOT_NAME),
-            'detect_and_tap_button': lambda folder: self.device.detect_and_tap(folder),
-            'human_tap': lambda x, y, offset: self.device.tap(x, y, offset),
-            'detect_button': lambda folder: self.device.detect_button(folder),
-        }
-        self.wall_manager.maybe_upgrade_walls(self.loop_count, hooks)
+        if not self._navigate_to_attack():
+            return
 
-    def find_match(self):
-        """Navigates to the attack screen and clicks Find Match."""
-        start_wait = time.time()
-        
-        # 1. Click Attack Button
-        while True:
-            if time.time() - start_wait > 30:
-                print("⏭️ Timeout waiting for initial Attack button.")
-                return False
-            
-            self.device.take_screenshot()
-            if self.device.detect_and_tap("ui_main_base/attack_button"):
-                print("Attack button tapped.")
-                break
-            time.sleep(2)
-        
-        time.sleep(1) # Animation wait
+        if self.flow.get("search_for_base"):
+            if not self._search_and_select_base():
+                return
 
-        # 2. Click Find Match
-        start_wait = time.time()
-        while True:
-            if time.time() - start_wait > 30:
-                print("⏭️ Timeout waiting for Find Match button.")
-                return False
-                
-            self.device.take_screenshot()
-            if self.device.detect_and_tap("ui_main_base/find_match_button"):
-                print("Find Match button tapped.")
-                break
-           
-            
-            # Handle accidental screens (like okay button)
-            self.device.detect_and_tap("ui_main_base/okay_button")
-            # Retry attack button if we somehow got kicked out
-            if self.device.detect_and_tap("ui_main_base/attack_button"):
-                print("Retrying attack button...")
-        while True: 
-            time.sleep(2)
-            self.device.take_screenshot()    
-            if self.device.detect_and_tap("ui_main_base/attack_button"):
-                print("Attack button tapped.")
-                return True         
+        if self.flow.get("deploy_troops"):
+            self._deploy_troops()
+        if self.flow.get("deploy_heroes"):
+            self._deploy_heroes()
+        if self.flow.get("deploy_spells"):
+            self._deploy_spells()
+        if self.flow.get("trigger_abilities"):
+            self._trigger_abilities()
 
-    def search_for_base(self):
-        """Searches for a base meeting resource requirements."""
+        if self.flow.get("return_home"):
+            self._return_home()
+
+    def _collect_resource(self, folder: str, name: str):
+        """Collect a single resource type."""
+        print(f"Collecting {name}...")
         self.device.take_screenshot()
-        attempt = 1
-        search_start = time.time()
+        self.device.detect_and_tap(f"ui_main_base/{folder}")
+
+    def _navigate_to_attack(self) -> bool:
+        """Navigate to attack screen and click Find Match."""
+        print("Navigating to attack...")
         
-        while True:
-            if time.time() - search_start > 120:
-                print("⏭️ Timeout searching for base.")
+        if not self._wait_for_button("ui_main_base/attack_button", timeout=30):
+            print("Timeout waiting for Attack button")
+            return False
+        
+        time.sleep(1)
+        
+        if not self._wait_for_button("ui_main_base/find_match_button", timeout=30):
+            print("Timeout waiting for Find Match button")
+            return False
+        
+        time.sleep(2)
+        self.device.take_screenshot()
+        
+        if self.device.detect_and_tap("ui_main_base/attack"):
+            time.sleep(2)
+        
+        return True
+
+    def _wait_for_button(self, folder: str, timeout: int = 30) -> bool:
+        """Wait for a button to appear."""
+        start = time.time()
+        while time.time() - start < timeout:
+            self.device.take_screenshot()
+            if self.device.detect_and_tap(folder):
+                return True
+            self.device.detect_and_tap("ui_main_base/okay_button")
+            time.sleep(2)
+        return False
+
+    def _search_and_select_base(self) -> bool:
+        """Search for base meeting resource requirements."""
+        print("Searching for base...")
+        search_start = time.time()
+        attempt = 1
+        
+        while not self.stop_flag:
+            if time.time() - search_start > self.deploy_config.get("base_search_timeout", config.BASE_SEARCH_TIMEOUT):
+                print("Timeout searching for base")
                 return False
 
             resources = get_resource_values(config.SCREENSHOT_NAME)
-            gold = resources.get('gold', 0)
-            elixir = resources.get('elixir', 0)
-            dark = resources.get('dark_elixir', 0)
+            if resources is None:
+                print(f"Base {attempt}: (failed to read resources)")
+                time.sleep(random.uniform(4.5, 5))
+                self.device.take_screenshot()
+                attempt += 1
+                continue
 
-            # Check duplication/ocr errors
+            gold = resources.get("gold", 0)
+            elixir = resources.get("elixir", 0)
+            dark = resources.get("dark_elixir", 0)
+
             if self.last_resources == resources or (gold == 0 and elixir == 0 and dark == 0):
-                print(f"Base {attempt}: (skipping invalid/duplicate read)")
+                print(f"Base {attempt}: (skipping invalid read)")
             else:
                 print(f"Base {attempt}: Gold={gold:,} Elixir={elixir:,} Dark={dark:,}")
 
             self.last_resources = resources.copy()
 
-            if (gold >= config.GOLD_THRESHOLD or elixir >= config.ELIXIR_THRESHOLD) and dark >= config.DARK_ELIXIR_THRESHOLD:
-                print("✅ Target found! Launching attack.")
+            if (gold >= self.deploy_config.get("gold_threshold", config.GOLD_THRESHOLD) or 
+                elixir >= self.deploy_config.get("elixir_threshold", config.ELIXIR_THRESHOLD)) and \
+               dark >= self.deploy_config.get("dark_threshold", config.DARK_ELIXIR_THRESHOLD):
+                print("Target found!")
                 self.session_gold += gold
                 self.session_elixir += elixir
                 self.session_dark += dark
                 
-                # Log attack
                 with open(config.LOG_FILE, "a", encoding="utf-8") as f:
                     f.write(f"Attack {self.loop_count}: Gold={gold:,}, Elixir={elixir:,}, Dark={dark:,}\n")
                 
-                notifier.send_attack_summary(self.webhook_url, self.loop_count, gold, elixir, dark)
                 return True
 
-            # Next Base
-            print("❌ Skipping...")
+            print("Skipping...")
             if self.device.detect_and_tap("ui_main_base/next_button"):
-                search_start = time.time() # Reset timeout on successful next
-            else:
-                print("⚠️ Next button not found?")
+                search_start = time.time()
             
-            time.sleep(random.uniform(4.5, 5)) # Wait for cloud animation
+            time.sleep(random.uniform(4.5, 5))
             self.device.take_screenshot()
             attempt += 1
+        
+        return False  # Stopped
 
-    def perform_attack(self):
-        """Deploys troops, heroes, and spells."""
-        # 1. Deploy Troops
-        if self.device.detect_and_tap("ui_main_base/troops/super_minion"):
-            print("Deploying super minions...")
+    def _deploy_troops(self):
+        """Deploy troops to battlefield with per-troop counts."""
+        selected_troops = self.deploy_config.get("selected_troops", ["super_minion"])
+        troop_counts = self.deploy_config.get("troop_counts", {})
+        
+        # Get counts for each selected troop, default to 14 if not specified
+        deployment_plan = {}
+        for troop in selected_troops:
+            deployment_plan[troop] = troop_counts.get(troop, 14)
+        
+        # Check if any troops have count > 0
+        if not any(count > 0 for count in deployment_plan.values()):
+            print("No troops to deploy!")
+            return
+        
+        locs = self.deploy_config.get("troop_locations", config.TROOP_LOCATIONS)[:]
+        random_offset = self.deploy_config.get("random_offset_troops", config.RANDOM_OFFSET)
+        
+        if not locs:
+            print("No troop locations defined!")
+            return
+        
+        random.shuffle(locs)
+        loc_index = 0
+        
+        # Deploy each troop type with its count
+        for troop_folder, count in deployment_plan.items():
+            if count <= 0:
+                continue
             
-            # Group locations in batches to simulate fingers or waves if needed
-            # For now, just iterate
-            # Shuffle troop locations for variety
-            locs = config.TROOP_LOCATIONS[:]
-            random.shuffle(locs)
-            
-            # Deploy 24 units as per original code
-            units_to_deploy = 24
-            for i in range(units_to_deploy):
-                tgt = locs[i % len(locs)]
-                self.device.tap(tgt[0], tgt[1], config.RANDOM_OFFSET)
-                time.sleep(random.uniform(0.1, 0.2))
-        else:
-            print("⚠️ Troop button not found!")
-
+            # Select this troop type in the UI
+            if self.device.detect_and_tap(f"ui_main_base/troops/{troop_folder}"):
+                print(f"Deploying {troop_folder} ({count})...")
+                time.sleep(0.3)  # Wait for troop selection UI
+                
+                # Deploy 'count' troops at locations
+                for i in range(count):
+                    tgt = locs[loc_index % len(locs)]
+                    self.device.tap(tgt[0], tgt[1], random_offset)
+                    time.sleep(random.uniform(0.1, 0.2))
+                    loc_index += 1
+                
+                time.sleep(0.3)  # Brief pause between troop types
+            else:
+                print(f"Troop button not found: {troop_folder}")
+        
         time.sleep(random.uniform(4, 5))
 
-        # 2. Deploy Heroes
-        self.deployed_heroes = {} # Reset
-        # Get hero folders (assume they are in ui_main_base/hero)
-        # We need to iterate over folders in ui_main_base/hero
-        # Since we can't easily glob from inside the class without importing glob/os, 
-        # let's assume specific heroes or dynamic check.
-        # Original code did dynamic walk. Let's do that cleanly.
-        import os
-        hero_root = "ui_main_base/hero"
-        if os.path.isdir(hero_root):
-            hero_folders = [os.path.join(hero_root, f) for f in os.listdir(hero_root) if os.path.isdir(os.path.join(hero_root, f))]
-            random.shuffle(hero_folders)
+    def _deploy_heroes(self):
+        """Deploy heroes to battlefield."""
+        print("Deploying heroes...")
+        self.deployed_heroes = {}
+        
+        selected_heroes = self.deploy_config.get("selected_heroes", [])
+        hero_counts = self.deploy_config.get("hero_counts", {})
+        
+        if not selected_heroes:
+            print("No heroes selected!")
+            return
+        
+        hero_locs = self.deploy_config.get("hero_locations", config.HERO_LOCATIONS)[:]
+        random_offset = self.deploy_config.get("random_offset_heroes", config.RANDOM_OFFSET_HEROES)
+        
+        if not hero_locs:
+            print("No hero locations defined!")
+            return
+        
+        random.shuffle(hero_locs)
+        loc_index = 0
+        
+        for hero_folder in selected_heroes:
+            count = hero_counts.get(hero_folder, 1)
+            if count <= 0:
+                continue
             
-            hero_locs = config.HERO_LOCATIONS[:]
-            random.shuffle(hero_locs)
-            
-            for folder, loc in zip(hero_folders, hero_locs):
-                hero_name = os.path.basename(folder)
-                coords = self.device.detect_button(folder, threshold=0.8) # Precise check first
-                if coords:
-                    print(f"Deploying {hero_name}")
-                    # Tap the hero card
-                    self.device.tap(coords[0], coords[1], config.RANDOM_OFFSET_HEROES)
-                    time.sleep(0.2)
-                    # Tap the field
-                    self.device.tap(loc[0], loc[1], config.RANDOM_OFFSET_HEROES)
-                    # Store for ability
-                    self.deployed_heroes[hero_name] = coords
+            if self.device.detect_and_tap(f"ui_main_base/hero/{hero_folder}"):
+                print(f"Deploying {hero_folder}...")
+                for i in range(count):
+                    loc = hero_locs[loc_index % len(hero_locs)]
+                    self.device.tap(loc[0], loc[1], random_offset)
+                    coords = self.device.detect_button(f"ui_main_base/hero/{hero_folder}", threshold=0.8)
+                    if coords:
+                        self.deployed_heroes[hero_folder] = coords
                     time.sleep(random.uniform(0.5, 1.0))
-        
-        # 3. Deploy Spells
-        if self.device.detect_and_tap("ui_main_base/spells/rage"):
-            print("Deploying spells...")
-            for loc in config.SPELL_LOCATIONS:
-                self.device.tap(loc[0], loc[1], config.RANDOM_OFFSET_SPELLS)
-                time.sleep(0.3)
-        
-        time.sleep(random.uniform(5, 8))
-        
-        # 4. Trigger Warden Ability (example)
-        self.trigger_hero_ability("grand_warden")
+                    loc_index += 1
+            else:
+                print(f"Hero button not found: {hero_folder}")
 
-    def trigger_hero_ability(self, hero_name_partial):
-        # Look for the hero in our deployed list
+    def _deploy_spells(self):
+        """Deploy spells to battlefield."""
+        selected_spells = self.deploy_config.get("selected_spells", [])
+        spell_counts = self.deploy_config.get("spell_counts", {})
+        
+        if not selected_spells:
+            print("No spells selected!")
+            return
+        
+        spell_locs = self.deploy_config.get("spell_locations", config.SPELL_LOCATIONS)
+        random_offset = self.deploy_config.get("random_offset_spells", config.RANDOM_OFFSET_SPELLS)
+        
+        if not spell_locs:
+            print("No spell locations defined!")
+            return
+        
+        print("Deploying spells...")
+        
+        for spell_folder in selected_spells:
+            count = spell_counts.get(spell_folder, 1)
+            if count <= 0:
+                continue
+            
+            if self.device.detect_and_tap(f"ui_main_base/spells/{spell_folder}"):
+                print(f"Deploying {spell_folder}...")
+                for i in range(count):
+                    loc = spell_locs[i % len(spell_locs)]
+                    self.device.tap(loc[0], loc[1], random_offset)
+                    time.sleep(0.3)
+            else:
+                print(f"Spell button not found: {spell_folder}")
+
+    def _trigger_abilities(self):
+        """Trigger hero abilities."""
+        self._trigger_hero_ability("grand_warden")
+
+    def _trigger_hero_ability(self, hero_name_partial: str):
+        """Trigger a specific hero ability."""
         for name, coords in self.deployed_heroes.items():
             if hero_name_partial in name.lower():
-                print(f"✨ Activating {name} ability!")
-                self.device.tap(coords[0], coords[1], config.RANDOM_OFFSET_HEROES)
+                print(f"Activating {name} ability!")
+                self.device.tap(coords[0], coords[1], 
+                    self.deploy_config.get("random_offset_heroes", config.RANDOM_OFFSET_HEROES))
                 break
 
-    def return_home(self):
-        print("Waiting for battle end (Return Home)...")
+    def _return_home(self):
+        """Return home after battle."""
+        print("Returning home...")
         wait_start = time.time()
+        timeout = self.deploy_config.get("return_home_timeout", config.RETURN_HOME_TIMEOUT)
         
-        while True:
-            if time.time() - wait_start > 210: # 3.5 mins
-                print("Force ending battle.")
-                break # Proceed to force quit check
-            
+        while time.time() - wait_start < timeout:
+            if self.stop_flag:
+                return
             self.device.take_screenshot()
             
             if self.device.detect_and_tap("ui_main_base/return_home"):
-                print("Returning home...")
                 time.sleep(3)
                 self.device.detect_and_tap("ui_main_base/okay_button")
                 return
-
-            if time.time() - wait_start > 20 and random.random() < 0.05:
-                # Randomly check for surrender if taking too long or just to end early?
-                # The original code had a surrender logic that was a bit complex/buggy looking in the loop.
-                # I'll implement a simple "End Battle" check if it exists
-                pass
-
+            
             time.sleep(3)
         
-        # Force quit logic if timeout or needed
+        print("Force ending battle...")
         self.device.take_screenshot()
         self.device.detect_and_tap("ui_main_base/end_battle")
         self.device.detect_and_tap("ui_main_base/surrender_button")
@@ -279,22 +344,25 @@ class CoCBot:
         self.device.take_screenshot()
         self.device.detect_and_tap("ui_main_base/return_home")
 
-    def log_summary(self):
-        if self.loop_count % 5 == 0:
-            elapsed_min = (time.time() - self.start_time) / 60
-            avg_gold = self.session_gold / self.loop_count
-            avg_elixir = self.session_elixir / self.loop_count
-            avg_dark = self.session_dark / self.loop_count
-            
-            summary = (
-                f"\n===== SESSION SUMMARY =====\n"
-                f"Attacks: {self.loop_count}\n"
-                f"Avg Gold: {avg_gold:,.0f}\n"
-                f"Avg Elixir: {avg_elixir:,.0f}\n"
-                f"Avg Dark: {avg_dark:,.0f}\n"
-                f"Runtime: {elapsed_min:.1f} min\n"
-                f"===========================\n"
-            )
-            print(summary)
-            with open(config.LOG_FILE, "a", encoding="utf-8") as f:
-                f.write(summary)
+    def _log_summary(self):
+        """Log session summary every 5 loops."""
+        if self.loop_count % 5 != 0:
+            return
+        
+        elapsed_min = (time.time() - self.start_time) / 60
+        avg_gold = self.session_gold / self.loop_count
+        avg_elixir = self.session_elixir / self.loop_count
+        avg_dark = self.session_dark / self.loop_count
+        
+        summary = (
+            f"\n===== SESSION SUMMARY =====\n"
+            f"Attacks: {self.loop_count}\n"
+            f"Avg Gold: {avg_gold:,.0f}\n"
+            f"Avg Elixir: {avg_elixir:,.0f}\n"
+            f"Avg Dark: {avg_dark:,.0f}\n"
+            f"Runtime: {elapsed_min:.1f} min\n"
+            f"===========================\n"
+        )
+        print(summary)
+        with open(config.LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(summary)

@@ -3,12 +3,12 @@ import cv2
 import glob
 import os
 import random
-import time
 import config
 
 class DeviceController:
-    def __init__(self, device_id=None):
+    def __init__(self, device_id=None, verbose=False):
         self.device_id = device_id
+        self.verbose = verbose
         if not self.device_id:
             self.device_id = self.select_device()
 
@@ -57,8 +57,9 @@ class DeviceController:
         if not self.device_id:
             return
         try:
-            cmd = f"adb -s {self.device_id} exec-out screencap -p > {local_path}"
-            subprocess.run(cmd, shell=True, check=True)
+            cmd = ["adb", "-s", self.device_id, "exec-out", "screencap", "-p"]
+            with open(local_path, "wb") as f:
+                subprocess.run(cmd, check=True, stdout=f)
             # print(f"Screenshot saved: {local_path}")
         except subprocess.CalledProcessError as e:
             print(f"Failed to take screenshot: {e}")
@@ -69,7 +70,6 @@ class DeviceController:
         Returns (x, y) tuple if found, else None.
         """
         if not os.path.exists(screenshot_path):
-            print(f"Screenshot not found: {screenshot_path}")
             return None
 
         screen = cv2.imread(screenshot_path)
@@ -78,7 +78,6 @@ class DeviceController:
 
         template_paths = glob.glob(os.path.join(button_folder, '*'))
         if not template_paths:
-            print(f"No templates in {button_folder}")
             return None
 
         best_val = -1
@@ -104,7 +103,8 @@ class DeviceController:
         if best_loc:
             x = best_loc[0] + best_w // 2
             y = best_loc[1] + best_h // 2
-            print(f"✅ Found {os.path.basename(button_folder)} at ({x},{y}) conf={best_val*100:.1f}%")
+            if self.verbose:
+                print(f"Found {os.path.basename(button_folder)} at ({x},{y}) conf={best_val*100:.1f}%")
             return x, y
         return None
 
