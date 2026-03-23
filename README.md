@@ -59,8 +59,3 @@ python main.py --device <DEVICE_ID>
 python main.py --webhook <URL>
 ```
 
-### 4. Wall Upgrades
-under dev 
-The bot can automatically upgrade walls if you have excess resources. Enable `WALL_UPGRADES_ENABLED` in `config.py`.
-
----
